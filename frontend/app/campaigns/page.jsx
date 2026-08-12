@@ -90,10 +90,6 @@ export default function CampaignsPage() {
                 <th>Origem</th>
                 <th>Status</th>
                 <th>Orçamento/dia</th>
-                <th>Chegaram</th>
-                <th>Agendamentos</th>
-                <th>Fechamentos</th>
-                <th>Valor vendido</th>
               </tr>
             </thead>
             <tbody>
@@ -129,14 +125,10 @@ function CampaignRow({ campaign, expanded, onToggle }) {
           <span className={`pill ${String(campaign.status).toLowerCase()}`}>{campaign.status}</span>
         </td>
         <td>{money(campaign.daily_budget)}</td>
-        <td>{number(campaign.leads_arrived)}</td>
-        <td>{number(campaign.scheduled_count)}</td>
-        <td>{number(campaign.closed_count)}</td>
-        <td>{money(campaign.sale_value_total)}</td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
+          <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
             <CampaignAdsPanel campaignId={campaign.id} />
           </td>
         </tr>
