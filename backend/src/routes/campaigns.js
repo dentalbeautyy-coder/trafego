@@ -9,7 +9,11 @@ campaignsRouter.get("/", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT
        c.id, c.source, c.name, c.status, c.objective, c.meta_campaign_id,
-       c.daily_budget, c.lifetime_budget, c.created_time,
+       -- Quando a campanha não tem orçamento próprio (CBO desligado — cada conjunto
+       -- define o seu, ex: ODONTOPEDIATRIA), usa a soma dos orçamentos dos conjuntos
+       -- como orçamento/dia efetivo da campanha.
+       COALESCE(c.daily_budget, adset_budget.total_daily_budget) AS daily_budget,
+       c.lifetime_budget, c.created_time,
        COALESCE(funnel.leads_arrived, 0) AS leads_arrived,
        COALESCE(funnel.scheduled_count, 0) AS scheduled_count,
        COALESCE(funnel.closed_count, 0) AS closed_count,
@@ -27,6 +31,12 @@ campaignsRouter.get("/", async (req, res) => {
        JOIN adsets ase ON ase.id = a.adset_id
        GROUP BY ase.campaign_id
      ) funnel ON funnel.campaign_id = c.id
+     LEFT JOIN (
+       SELECT campaign_id, SUM(daily_budget) AS total_daily_budget
+       FROM adsets
+       WHERE daily_budget IS NOT NULL
+       GROUP BY campaign_id
+     ) adset_budget ON adset_budget.campaign_id = c.id
      ORDER BY c.created_time DESC NULLS LAST, c.id DESC`
   );
   res.json(rows);
