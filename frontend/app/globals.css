@@ -1,38 +1,46 @@
+/* Paleta oficial Dental Beauty (brandbook): verde sálvia #718473,
+   dourado #e2b87f, creme #f8eddf. Semânticas (sucesso/aviso/erro)
+   permanecem em tons distintos do verde de marca para não confundir
+   "ação/marca" com "status". */
 :root {
-  --accent: #0f766e;
-  --accent-strong: #0b5a54;
-  --accent-soft: #e4f3f1;
-  --bg: #f7f8f7;
+  --accent: #718473;
+  --accent-strong: #56694b;
+  --accent-soft: #e7ece2;
+  --gold: #c99a52;
+  --gold-soft: #f7ecd9;
+  --bg: #f8eddf;
   --surface: #ffffff;
-  --border: #e2e5e3;
-  --text: #171a19;
-  --text-muted: #5b625f;
-  --text-faint: #8b928f;
-  --success: #1a7f4e;
-  --success-soft: #e4f6ec;
-  --warning: #a15c00;
-  --warning-soft: #fdf1e0;
+  --border: #e6dcc8;
+  --text: #2f3329;
+  --text-muted: #6c7460;
+  --text-faint: #9aa08c;
+  --success: #3f7d4e;
+  --success-soft: #e5f1e6;
+  --warning: #b8791f;
+  --warning-soft: #f7ecd9;
   --danger: #b3261e;
   --danger-soft: #fbe9e7;
   --radius: 10px;
-  --shadow: 0 1px 2px rgba(20, 24, 22, 0.06), 0 1px 8px rgba(20, 24, 22, 0.04);
+  --shadow: 0 1px 2px rgba(47, 51, 41, 0.06), 0 1px 8px rgba(47, 51, 41, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #2dd4bf;
-    --accent-strong: #5eead4;
-    --accent-soft: #113531;
-    --bg: #14161a;
-    --surface: #1c1f23;
-    --border: #2b2f33;
-    --text: #eef0ee;
-    --text-muted: #a4aaa7;
-    --text-faint: #767c79;
-    --success: #4ade80;
-    --success-soft: #14301f;
-    --warning: #fbbf24;
-    --warning-soft: #352708;
+    --accent: #a3b699;
+    --accent-strong: #c3d3b9;
+    --accent-soft: #29331f;
+    --gold: #e2b87f;
+    --gold-soft: #3a2c14;
+    --bg: #1b1d17;
+    --surface: #24261e;
+    --border: #363a2c;
+    --text: #f1ede0;
+    --text-muted: #b6b8a5;
+    --text-faint: #82866f;
+    --success: #7fbf8e;
+    --success-soft: #1c3324;
+    --warning: #e0ab5c;
+    --warning-soft: #3a2c14;
     --danger: #f87171;
     --danger-soft: #3a1815;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 12px rgba(0, 0, 0, 0.25);
@@ -40,37 +48,41 @@
 }
 
 :root[data-theme="dark"] {
-  --accent: #2dd4bf;
-  --accent-strong: #5eead4;
-  --accent-soft: #113531;
-  --bg: #14161a;
-  --surface: #1c1f23;
-  --border: #2b2f33;
-  --text: #eef0ee;
-  --text-muted: #a4aaa7;
-  --text-faint: #767c79;
-  --success: #4ade80;
-  --success-soft: #14301f;
-  --warning: #fbbf24;
-  --warning-soft: #352708;
+  --accent: #a3b699;
+  --accent-strong: #c3d3b9;
+  --accent-soft: #29331f;
+  --gold: #e2b87f;
+  --gold-soft: #3a2c14;
+  --bg: #1b1d17;
+  --surface: #24261e;
+  --border: #363a2c;
+  --text: #f1ede0;
+  --text-muted: #b6b8a5;
+  --text-faint: #82866f;
+  --success: #7fbf8e;
+  --success-soft: #1c3324;
+  --warning: #e0ab5c;
+  --warning-soft: #3a2c14;
   --danger: #f87171;
   --danger-soft: #3a1815;
 }
 
 :root[data-theme="light"] {
-  --accent: #0f766e;
-  --accent-strong: #0b5a54;
-  --accent-soft: #e4f3f1;
-  --bg: #f7f8f7;
+  --accent: #718473;
+  --accent-strong: #56694b;
+  --accent-soft: #e7ece2;
+  --gold: #c99a52;
+  --gold-soft: #f7ecd9;
+  --bg: #f8eddf;
   --surface: #ffffff;
-  --border: #e2e5e3;
-  --text: #171a19;
-  --text-muted: #5b625f;
-  --text-faint: #8b928f;
-  --success: #1a7f4e;
-  --success-soft: #e4f6ec;
-  --warning: #a15c00;
-  --warning-soft: #fdf1e0;
+  --border: #e6dcc8;
+  --text: #2f3329;
+  --text-muted: #6c7460;
+  --text-faint: #9aa08c;
+  --success: #3f7d4e;
+  --success-soft: #e5f1e6;
+  --warning: #b8791f;
+  --warning-soft: #f7ecd9;
   --danger: #b3261e;
   --danger-soft: #fbe9e7;
 }
@@ -99,8 +111,9 @@ a {
 
 h1, h2, h3 {
   text-wrap: balance;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: var(--font-brand), var(--font-ui), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 .container {
@@ -125,9 +138,10 @@ h1, h2, h3 {
 }
 
 .brand {
-  font-weight: 800;
+  font-family: var(--font-brand), var(--font-ui), sans-serif;
+  font-weight: 600;
   font-size: 17px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -344,8 +358,8 @@ tr:last-child td {
 }
 
 .pill.manual {
-  background: var(--warning-soft);
-  color: var(--warning);
+  background: var(--gold-soft);
+  color: var(--gold);
 }
 
 .pill.active {
