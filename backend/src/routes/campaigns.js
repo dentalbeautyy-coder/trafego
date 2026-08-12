@@ -58,7 +58,7 @@ campaignsRouter.get("/:id/detail", async (req, res) => {
   const adsRes = await pool.query(
     `SELECT
        a.id, a.name, a.status, a.creative_thumbnail_url,
-       ase.name AS adset_name,
+       ase.id AS adset_id, ase.name AS adset_name, ase.daily_budget AS adset_daily_budget,
        COALESCE(spend.total_spend, 0) AS spend,
        COALESCE(spend.total_clicks, 0) AS clicks,
        COALESCE(spend.total_impressions, 0) AS impressions,

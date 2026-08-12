@@ -15,9 +15,9 @@ export async function getCampaignMetrics({ from, to, campaignId }) {
   const { rows } = await pool.query(
     `
     WITH spend AS (
-      SELECT campaign_id, SUM(spend) AS meta_spend
+      SELECT campaign_id, SUM(spend) AS meta_spend, SUM(clicks) AS meta_clicks
       FROM campaign_insights_daily
-      WHERE date BETWEEN $1 AND $2
+      WHERE date BETWEEN $1 AND $2 AND adset_id IS NULL AND ad_id IS NULL
       GROUP BY campaign_id
     ),
     manual_spend AS (
@@ -44,6 +44,7 @@ export async function getCampaignMetrics({ from, to, campaignId }) {
       c.source,
       c.status,
       COALESCE(spend.meta_spend, 0) + COALESCE(manual_spend.manual_spend, 0) AS investment,
+      COALESCE(spend.meta_clicks, 0) AS clicks,
       COALESCE(funnel.leads_arrived, 0) AS leads,
       COALESCE(funnel.scheduled_count, 0) AS scheduled,
       COALESCE(funnel.closed_count, 0) AS closed,
@@ -63,6 +64,7 @@ export async function getCampaignMetrics({ from, to, campaignId }) {
 
 function deriveRatios(row) {
   const investment = Number(row.investment);
+  const clicks = Number(row.clicks);
   const leads = Number(row.leads);
   const scheduled = Number(row.scheduled);
   const closed = Number(row.closed);
@@ -76,10 +78,12 @@ function deriveRatios(row) {
     source: row.source,
     status: row.status,
     investment,
+    clicks,
     leads,
     scheduled,
     closed,
     revenue,
+    costPerClick: safeDiv(investment, clicks),
     costPerLead: safeDiv(investment, leads),
     costPerScheduled: safeDiv(investment, scheduled),
     costPerClosed: safeDiv(investment, closed),

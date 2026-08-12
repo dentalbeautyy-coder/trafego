@@ -16,6 +16,7 @@ export default function OverviewPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(null); // null = todas selecionadas
 
   useEffect(() => {
     load();
@@ -28,6 +29,7 @@ export default function OverviewPage() {
     try {
       const data = await api.getMetrics(from, to);
       setRows(data);
+      setSelectedIds(null); // nova busca reseta a seleção para "todas"
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,31 +37,49 @@ export default function OverviewPage() {
     }
   }
 
+  function isSelected(id) {
+    return selectedIds === null || selectedIds.has(id);
+  }
+
+  function toggleRow(id) {
+    setSelectedIds((prev) => {
+      const current = prev === null ? new Set(rows.map((r) => r.campaignId)) : new Set(prev);
+      if (current.has(id)) current.delete(id);
+      else current.add(id);
+      return current;
+    });
+  }
+
+  const selectedRows = useMemo(() => rows.filter((r) => isSelected(r.campaignId)), [rows, selectedIds]);
+
   const totals = useMemo(() => {
-    const t = rows.reduce(
+    const t = selectedRows.reduce(
       (acc, r) => {
         acc.investment += Number(r.investment) || 0;
+        acc.clicks += r.clicks || 0;
         acc.leads += r.leads || 0;
         acc.scheduled += r.scheduled || 0;
         acc.closed += r.closed || 0;
         acc.revenue += Number(r.revenue) || 0;
         return acc;
       },
-      { investment: 0, leads: 0, scheduled: 0, closed: 0, revenue: 0 }
+      { investment: 0, clicks: 0, leads: 0, scheduled: 0, closed: 0, revenue: 0 }
     );
     t.roi = t.investment > 0 ? (t.revenue - t.investment) / t.investment : null;
+    t.cpc = t.clicks > 0 ? t.investment / t.clicks : null;
     t.cpl = t.leads > 0 ? t.investment / t.leads : null;
     t.cac = t.closed > 0 ? t.investment / t.closed : null;
     return t;
-  }, [rows]);
+  }, [selectedRows]);
 
   const maxFunnelValue = totals.leads || 1;
+  const allSelected = selectedIds === null;
 
   return (
     <>
       <div className="page-header">
         <h1>Visão geral</h1>
-        <p>Investimento e orçamento vêm da Meta automaticamente. Leads chegados, agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos manualmente por anúncio (aba Campanhas).</p>
+        <p>Investimento e cliques vêm da Meta automaticamente. Custo por lead usa quem chegou de fato pra nós, não o que a Meta reporta como "resultado" — é mais confiável. Leads, agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
       </div>
 
       <div className="toolbar">
@@ -80,12 +100,13 @@ export default function OverviewPage() {
 
       <div className="stat-grid">
         <Stat label="Investimento total" value={money(totals.investment)} />
+        <Stat label="Custo por clique" value={money(totals.cpc)} />
         <Stat label="Chegaram" value={number(totals.leads)} />
+        <Stat label="Custo por lead" value={money(totals.cpl)} />
         <Stat label="Agendamentos" value={number(totals.scheduled)} />
         <Stat label="Fechamentos" value={number(totals.closed)} />
-        <Stat label="Faturamento" value={money(totals.revenue)} />
-        <Stat label="Custo por lead" value={money(totals.cpl)} />
         <Stat label="Custo por fechamento" value={money(totals.cac)} />
+        <Stat label="Faturamento" value={money(totals.revenue)} />
         <Stat
           label="ROI"
           value={percent(totals.roi)}
@@ -94,7 +115,7 @@ export default function OverviewPage() {
       </div>
 
       <div className="card card-pad" style={{ marginBottom: 24 }}>
-        <div className="section-title">Funil consolidado</div>
+        <div className="section-title">Funil consolidado {!allSelected && `(${selectedRows.length} campanha${selectedRows.length === 1 ? "" : "s"} selecionada${selectedRows.length === 1 ? "" : "s"})`}</div>
         <div className="funnel">
           {FUNNEL_STEPS.map((step) => (
             <div className="funnel-row" key={step.key}>
@@ -112,19 +133,25 @@ export default function OverviewPage() {
       </div>
 
       <div className="card">
-        <div className="card-pad" style={{ paddingBottom: 0 }}>
-          <div className="section-title">Campanhas no período</div>
+        <div className="card-pad" style={{ paddingBottom: 0, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div className="section-title" style={{ margin: 0 }}>Campanhas no período — selecione quais entram nos totais acima</div>
+          <button className="secondary" onClick={() => setSelectedIds(allSelected ? new Set() : null)}>
+            {allSelected ? "Desmarcar todas" : "Selecionar todas"}
+          </button>
         </div>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
+                <th style={{ width: 24 }}></th>
                 <th>Campanha</th>
                 <th>Origem</th>
                 <th>Status</th>
                 <th>Investimento</th>
-                <th>Leads</th>
-                <th>CPL</th>
+                <th>Cliques</th>
+                <th>Custo/clique</th>
+                <th>Chegaram</th>
+                <th>Custo/lead</th>
                 <th>Fechamentos</th>
                 <th>Custo/fechamento</th>
                 <th>Faturamento</th>
@@ -133,7 +160,14 @@ export default function OverviewPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.campaignId}>
+                <tr key={r.campaignId} style={{ opacity: isSelected(r.campaignId) ? 1 : 0.45 }}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={isSelected(r.campaignId)}
+                      onChange={() => toggleRow(r.campaignId)}
+                    />
+                  </td>
                   <td>{r.name}</td>
                   <td>
                     <span className={`pill ${r.source}`}>{r.source === "meta" ? "Meta" : "Manual"}</span>
@@ -142,6 +176,8 @@ export default function OverviewPage() {
                     <span className={`pill ${String(r.status).toLowerCase()}`}>{r.status}</span>
                   </td>
                   <td>{money(r.investment)}</td>
+                  <td>{number(r.clicks)}</td>
+                  <td>{money(r.costPerClick)}</td>
                   <td>{number(r.leads)}</td>
                   <td>{money(r.costPerLead)}</td>
                   <td>{number(r.closed)}</td>

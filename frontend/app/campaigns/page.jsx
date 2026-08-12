@@ -172,6 +172,18 @@ function CampaignAdsPanel({ campaignId }) {
     });
   }, [detail, adsetFilter, nameFilter]);
 
+  // Agrupa os anúncios filtrados por conjunto, na ordem em que os conjuntos aparecem.
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const ad of filteredAds) {
+      if (!map.has(ad.adset_id)) {
+        map.set(ad.adset_id, { adsetId: ad.adset_id, adsetName: ad.adset_name, dailyBudget: ad.adset_daily_budget, ads: [] });
+      }
+      map.get(ad.adset_id).ads.push(ad);
+    }
+    return Array.from(map.values()).sort((a, b) => a.adsetName.localeCompare(b.adsetName));
+  }, [filteredAds]);
+
   if (error) return <div className="error-banner" style={{ margin: 16 }}>{error}</div>;
   if (!detail) return <div className="empty">Carregando anúncios…</div>;
   if (!detail.ads.length) return <div className="empty">Essa campanha ainda não tem anúncios sincronizados.</div>;
@@ -213,12 +225,62 @@ function CampaignAdsPanel({ campaignId }) {
         )}
       </div>
 
+      {!filteredAds.length && <div className="empty">Nenhum anúncio corresponde ao filtro.</div>}
+
+      {groups.map((group) => (
+        <AdsetGroup key={group.adsetId} group={group} />
+      ))}
+    </div>
+  );
+}
+
+function AdsetGroup({ group }) {
+  const subtotal = useMemo(() => {
+    return group.ads.reduce(
+      (acc, ad) => {
+        acc.spend += Number(ad.spend) || 0;
+        acc.clicks += Number(ad.clicks) || 0;
+        acc.leadsFromMeta += Number(ad.leads_from_meta) || 0;
+        acc.leadsArrived += Number(ad.leads_arrived) || 0;
+        acc.scheduled += Number(ad.scheduled_count) || 0;
+        acc.closed += Number(ad.closed_count) || 0;
+        acc.revenue += Number(ad.sale_value_total) || 0;
+        return acc;
+      },
+      { spend: 0, clicks: 0, leadsFromMeta: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
+    );
+  }, [group.ads]);
+
+  const costPerClick = subtotal.clicks > 0 ? subtotal.spend / subtotal.clicks : null;
+  const costPerRealLead = subtotal.leadsArrived > 0 ? subtotal.spend / subtotal.leadsArrived : null;
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div
+        className="card-pad"
+        style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", borderBottom: "1px solid var(--border)" }}
+      >
+        <div style={{ fontWeight: 700 }}>{group.adsetName}</div>
+        <div className="muted" style={{ fontSize: 13 }}>Orçamento/dia: {money(group.dailyBudget)}</div>
+      </div>
+
+      <div className="card-pad" style={{ display: "flex", flexWrap: "wrap", gap: 24, borderBottom: "1px solid var(--border)", fontSize: 13 }}>
+        <SubtotalItem label="Gasto (Meta)" value={money(subtotal.spend)} />
+        <SubtotalItem label="Cliques (Meta)" value={number(subtotal.clicks)} />
+        <SubtotalItem label="Leads (Meta)" value={number(subtotal.leadsFromMeta)} />
+        <SubtotalItem label="Custo/clique" value={money(costPerClick)} />
+        <SubtotalItem label="Custo/lead real" value={money(costPerRealLead)} />
+        <SubtotalItem label="Chegaram" value={number(subtotal.leadsArrived)} />
+        <SubtotalItem label="Agendamentos" value={number(subtotal.scheduled)} />
+        <SubtotalItem label="Fechamentos" value={number(subtotal.closed)} />
+        <SubtotalItem label="Valor vendido" value={money(subtotal.revenue)} />
+      </div>
+
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
               <th>Anúncio</th>
-              <th>Conjunto</th>
               <th>Gasto (Meta)</th>
               <th>Cliques (Meta)</th>
               <th>Leads (Meta)</th>
@@ -229,13 +291,21 @@ function CampaignAdsPanel({ campaignId }) {
             </tr>
           </thead>
           <tbody>
-            {filteredAds.map((ad) => (
+            {group.ads.map((ad) => (
               <AdFunnelRow key={ad.id} ad={ad} />
             ))}
           </tbody>
         </table>
-        {!filteredAds.length && <div className="empty">Nenhum anúncio corresponde ao filtro.</div>}
       </div>
+    </div>
+  );
+}
+
+function SubtotalItem({ label, value }) {
+  return (
+    <div>
+      <div className="stat-label" style={{ fontSize: 10.5 }}>{label}</div>
+      <div style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{value}</div>
     </div>
   );
 }
@@ -272,7 +342,6 @@ function AdFunnelRow({ ad }) {
   return (
     <tr>
       <td>{ad.name}</td>
-      <td className="muted">{ad.adset_name}</td>
       <td className="muted">{money(ad.spend)}</td>
       <td className="muted">{number(ad.clicks)}</td>
       <td className="muted">{number(ad.leads_from_meta)}</td>
