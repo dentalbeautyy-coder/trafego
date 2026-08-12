@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./lib/api";
 import { money, percent, number, isoDaysAgo } from "./lib/format";
+import { generateInsights } from "./lib/insights";
 
 const FUNNEL_STEPS = [
   { key: "leads", label: "Chegaram" },
@@ -68,9 +69,12 @@ export default function OverviewPage() {
     t.roi = t.investment > 0 ? (t.revenue - t.investment) / t.investment : null;
     t.cpc = t.clicks > 0 ? t.investment / t.clicks : null;
     t.cpl = t.leads > 0 ? t.investment / t.leads : null;
+    t.cps = t.scheduled > 0 ? t.investment / t.scheduled : null;
     t.cac = t.closed > 0 ? t.investment / t.closed : null;
     return t;
   }, [selectedRows]);
+
+  const insights = useMemo(() => generateInsights({ totals, rows: selectedRows }), [totals, selectedRows]);
 
   const maxFunnelValue = totals.leads || 1;
   const allSelected = selectedIds === null;
@@ -79,7 +83,7 @@ export default function OverviewPage() {
     <>
       <div className="page-header">
         <h1>Visão geral</h1>
-        <p>Investimento e cliques vêm da Meta automaticamente. Custo por lead usa quem chegou de fato pra nós, não o que a Meta reporta como "resultado" — é mais confiável. Leads, agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
+        <p>Investimento e cliques vêm da Meta automaticamente. Custo por lead usa quem chegou de fato no CRM, não o "resultado" que a Meta reporta — é mais confiável. Agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
       </div>
 
       <div className="toolbar">
@@ -98,20 +102,46 @@ export default function OverviewPage() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="stat-grid">
-        <Stat label="Investimento total" value={money(totals.investment)} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Stat label="Investimento total" value={money(totals.investment)} big />
+        </div>
+
+        <Stat label="Cliques no link" value={number(totals.clicks)} />
         <Stat label="Custo por clique" value={money(totals.cpc)} />
-        <Stat label="Chegaram" value={number(totals.leads)} />
-        <Stat label="Custo por lead" value={money(totals.cpl)} />
+
+        <Stat label="Chegaram no CRM" value={number(totals.leads)} />
+        <Stat label="Custo por lead que chegou" value={money(totals.cpl)} />
+
         <Stat label="Agendamentos" value={number(totals.scheduled)} />
+        <Stat label="Custo por agendamento" value={money(totals.cps)} />
+
         <Stat label="Fechamentos" value={number(totals.closed)} />
         <Stat label="Custo por fechamento" value={money(totals.cac)} />
+
         <Stat label="Faturamento" value={money(totals.revenue)} />
         <Stat
           label="ROI"
           value={percent(totals.roi)}
           tone={totals.roi === null ? undefined : totals.roi >= 0 ? "pos" : "neg"}
         />
+      </div>
+
+      <div className="card card-pad" style={{ marginBottom: 24 }}>
+        <div className="section-title">Insights</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {insights.map((insight, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span className={`pill ${insight.severity === "success" ? "success" : insight.severity === "warning" ? "warning" : "meta"}`} style={{ marginTop: 2, flexShrink: 0 }}>
+                {insight.severity === "success" ? "Bom sinal" : insight.severity === "warning" ? "Atenção" : "Info"}
+              </span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{insight.title}</div>
+                <div className="muted" style={{ fontSize: 13 }}>{insight.text}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card card-pad" style={{ marginBottom: 24 }}>
@@ -195,11 +225,13 @@ export default function OverviewPage() {
   );
 }
 
-function Stat({ label, value, tone }) {
+function Stat({ label, value, tone, big }) {
   return (
     <div className="stat">
       <div className="stat-label">{label}</div>
-      <div className={`stat-value ${tone || ""}`}>{value}</div>
+      <div className={`stat-value ${tone || ""}`} style={big ? { fontSize: 30 } : undefined}>
+        {value}
+      </div>
     </div>
   );
 }
