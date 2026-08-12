@@ -167,7 +167,7 @@ function CampaignRow({ campaign, expanded, onToggle }) {
       {/* Resumo — sempre visível, não depende do +/- */}
       <tr>
         <td colSpan={5} style={{ padding: 0, borderBottom: expanded ? "none" : "1px solid var(--border)" }}>
-          <div style={{ background: "var(--bg)", padding: 16, paddingBottom: expanded ? 0 : 16 }}>
+          <div style={{ background: "var(--bg-cream)", padding: 16, paddingBottom: expanded ? 0 : 16 }}>
             {error && <div className="error-banner">{error}</div>}
             {!error && !detail && <div className="empty">Carregando…</div>}
             {campaignTotal && (
@@ -233,7 +233,7 @@ function CampaignAdsBreakdown({ campaignId, detail, error }) {
   if (!detail.ads.length) return <div className="empty" style={{ padding: 16 }}>Essa campanha ainda não tem anúncios sincronizados.</div>;
 
   return (
-    <div style={{ background: "var(--bg)", padding: 16, paddingTop: 0 }}>
+    <div style={{ background: "var(--bg-cream)", padding: 16, paddingTop: 0 }}>
       <div className="toolbar" style={{ marginBottom: 12 }}>
         <div className="field">
           <label htmlFor={`adset-filter-${campaignId}`}>Conjunto</label>
