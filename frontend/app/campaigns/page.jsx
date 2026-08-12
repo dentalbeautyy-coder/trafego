@@ -184,12 +184,44 @@ function CampaignAdsPanel({ campaignId }) {
     return Array.from(map.values()).sort((a, b) => a.adsetName.localeCompare(b.adsetName));
   }, [filteredAds]);
 
+  const campaignTotal = useMemo(() => {
+    if (!detail) return null;
+    return detail.ads.reduce(
+      (acc, ad) => {
+        acc.spend += Number(ad.spend) || 0;
+        acc.clicks += Number(ad.clicks) || 0;
+        acc.leadsFromMeta += Number(ad.leads_from_meta) || 0;
+        acc.leadsArrived += Number(ad.leads_arrived) || 0;
+        acc.scheduled += Number(ad.scheduled_count) || 0;
+        acc.closed += Number(ad.closed_count) || 0;
+        acc.revenue += Number(ad.sale_value_total) || 0;
+        return acc;
+      },
+      { spend: 0, clicks: 0, leadsFromMeta: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
+    );
+  }, [detail]);
+
   if (error) return <div className="error-banner" style={{ margin: 16 }}>{error}</div>;
   if (!detail) return <div className="empty">Carregando anúncios…</div>;
   if (!detail.ads.length) return <div className="empty">Essa campanha ainda não tem anúncios sincronizados.</div>;
 
+  const campaignCostPerClick = campaignTotal.clicks > 0 ? campaignTotal.spend / campaignTotal.clicks : null;
+  const campaignCostPerRealLead = campaignTotal.leadsArrived > 0 ? campaignTotal.spend / campaignTotal.leadsArrived : null;
+
   return (
     <div style={{ background: "var(--bg)", padding: 16 }}>
+      <div className="card card-pad" style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 24, fontSize: 13 }}>
+        <SubtotalItem label="Gasto total (Meta)" value={money(campaignTotal.spend)} />
+        <SubtotalItem label="Cliques (Meta)" value={number(campaignTotal.clicks)} />
+        <SubtotalItem label="Leads (Meta)" value={number(campaignTotal.leadsFromMeta)} />
+        <SubtotalItem label="Custo/clique" value={money(campaignCostPerClick)} />
+        <SubtotalItem label="Custo/lead real" value={money(campaignCostPerRealLead)} />
+        <SubtotalItem label="Chegaram" value={number(campaignTotal.leadsArrived)} />
+        <SubtotalItem label="Agendamentos" value={number(campaignTotal.scheduled)} />
+        <SubtotalItem label="Fechamentos" value={number(campaignTotal.closed)} />
+        <SubtotalItem label="Valor vendido" value={money(campaignTotal.revenue)} />
+      </div>
+
       <div className="toolbar" style={{ marginBottom: 12 }}>
         <div className="field">
           <label htmlFor={`adset-filter-${campaignId}`}>Conjunto</label>
@@ -235,6 +267,7 @@ function CampaignAdsPanel({ campaignId }) {
 }
 
 function AdsetGroup({ group }) {
+  const [showAds, setShowAds] = useState(false);
   const subtotal = useMemo(() => {
     return group.ads.reduce(
       (acc, ad) => {
@@ -262,6 +295,9 @@ function AdsetGroup({ group }) {
       >
         <div style={{ fontWeight: 700 }}>{group.adsetName}</div>
         <div className="muted" style={{ fontSize: 13 }}>Orçamento/dia: {money(group.dailyBudget)}</div>
+        <button className="secondary" style={{ marginLeft: "auto" }} onClick={() => setShowAds((v) => !v)}>
+          {showAds ? "Ocultar anúncios" : `Mostrar anúncios (${group.ads.length})`}
+        </button>
       </div>
 
       <div className="card-pad" style={{ display: "flex", flexWrap: "wrap", gap: 24, borderBottom: "1px solid var(--border)", fontSize: 13 }}>
@@ -276,27 +312,29 @@ function AdsetGroup({ group }) {
         <SubtotalItem label="Valor vendido" value={money(subtotal.revenue)} />
       </div>
 
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Anúncio</th>
-              <th>Gasto (Meta)</th>
-              <th>Cliques (Meta)</th>
-              <th>Leads (Meta)</th>
-              <th>Chegaram de fato</th>
-              <th>Agendamentos</th>
-              <th>Fechamentos</th>
-              <th>Valor vendido (total)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {group.ads.map((ad) => (
-              <AdFunnelRow key={ad.id} ad={ad} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {showAds && (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Anúncio</th>
+                <th>Gasto (Meta)</th>
+                <th>Cliques (Meta)</th>
+                <th>Leads (Meta)</th>
+                <th>Chegaram de fato</th>
+                <th>Agendamentos</th>
+                <th>Fechamentos</th>
+                <th>Valor vendido (total)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.ads.map((ad) => (
+                <AdFunnelRow key={ad.id} ad={ad} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
