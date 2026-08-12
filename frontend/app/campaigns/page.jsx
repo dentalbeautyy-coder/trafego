@@ -209,7 +209,7 @@ function CampaignAdsPanel({ campaignId }) {
 
   return (
     <div style={{ background: "var(--bg)", padding: 16 }}>
-      <div className="card card-pad" style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px 24px", fontSize: 13 }}>
+      <div className="card card-pad" style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", fontSize: 13 }}>
         <SubtotalItem label="Gasto total (Meta)" value={money(campaignTotal.spend)} />
         <SubtotalItem label="Cliques (Meta)" value={number(campaignTotal.clicks)} />
         <SubtotalItem label="Custo/clique" value={money(campaignCostPerClick)} />
@@ -297,7 +297,7 @@ function AdsetGroup({ group }) {
         </button>
       </div>
 
-      <div className="card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px 24px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
+      <div className="card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <SubtotalItem label="Gasto (Meta)" value={money(subtotal.spend)} />
         <SubtotalItem label="Cliques (Meta)" value={number(subtotal.clicks)} />
         <SubtotalItem label="Custo/clique" value={money(costPerClick)} />
