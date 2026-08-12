@@ -16,6 +16,17 @@ syncRouter.post("/run", async (req, res) => {
   }
 });
 
+// Diagnóstico temporário — remover depois de confirmar o índice de dedup.
+syncRouter.get("/debug-indexes", async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'campaign_insights_daily'`
+  );
+  const { rows: constraints } = await pool.query(
+    `SELECT conname, pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'campaign_insights_daily'::regclass`
+  );
+  res.json({ indexes: rows, constraints });
+});
+
 syncRouter.get("/logs", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT * FROM sync_logs ORDER BY started_at DESC LIMIT 50`
