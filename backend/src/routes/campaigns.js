@@ -47,8 +47,8 @@ campaignsRouter.post("/manual", async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
-// Detalhe de uma campanha: seus anúncios, com leads automáticos da Meta (se houver
-// formulário nativo) e os contadores manuais acumulados (chegaram/agendaram/fecharam/valor).
+// Detalhe de uma campanha: seus anúncios, gasto/cliques reais (Meta) e os
+// contadores manuais acumulados (chegaram/agendaram/fecharam/valor).
 campaignsRouter.get("/:id/detail", async (req, res) => {
   const { id } = req.params;
 
@@ -62,7 +62,6 @@ campaignsRouter.get("/:id/detail", async (req, res) => {
        COALESCE(spend.total_spend, 0) AS spend,
        COALESCE(spend.total_clicks, 0) AS clicks,
        COALESCE(spend.total_impressions, 0) AS impressions,
-       COALESCE(ml.leads_from_meta, 0) AS leads_from_meta,
        COALESCE(f.leads_arrived, 0) AS leads_arrived,
        COALESCE(f.scheduled_count, 0) AS scheduled_count,
        COALESCE(f.closed_count, 0) AS closed_count,
@@ -71,9 +70,6 @@ campaignsRouter.get("/:id/detail", async (req, res) => {
      FROM ads a
      JOIN adsets ase ON ase.id = a.adset_id
      LEFT JOIN ad_manual_funnel f ON f.ad_id = a.id
-     LEFT JOIN (
-       SELECT ad_id, COUNT(*) AS leads_from_meta FROM meta_leads GROUP BY ad_id
-     ) ml ON ml.ad_id = a.id
      LEFT JOIN (
        -- soma todo o período já sincronizado (não só o período do filtro da Visão
        -- Geral) — representa "quanto esse anúncio já gastou/gerou de cliques até agora".
