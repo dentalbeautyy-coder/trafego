@@ -90,6 +90,21 @@ export async function fetchAllInsightsDaily(adAccountId, daysBack = 7) {
   });
 }
 
+// Insights diários por ANÚNCIO (level=ad), para TODA a conta — usado para mostrar
+// quanto cada anúncio individual já gastou e seus cliques, dentro do painel da campanha.
+export async function fetchAllAdInsightsDaily(adAccountId, daysBack = 7) {
+  return getAllPages(`/${adAccountId}/insights`, {
+    level: "ad",
+    fields: "ad_id,adset_id,campaign_id,spend,impressions,clicks,cpc,cpm,ctr,date_start,date_stop",
+    time_increment: 1,
+    time_range: JSON.stringify({
+      since: daysAgo(daysBack),
+      until: daysAgo(0),
+    }),
+    limit: 200,
+  });
+}
+
 export async function fetchLeadsForForm(formId, sinceUnixTs) {
   return getAllPages(`/${formId}/leads`, {
     fields: "id,created_time,field_data,campaign_id,adset_id,ad_id",

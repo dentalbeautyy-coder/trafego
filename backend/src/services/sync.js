@@ -1,5 +1,11 @@
 import { pool } from "../config/db.js";
-import { fetchCampaigns, fetchAllAdSets, fetchAllAds, fetchAllInsightsDaily } from "./metaClient.js";
+import {
+  fetchCampaigns,
+  fetchAllAdSets,
+  fetchAllAds,
+  fetchAllInsightsDaily,
+  fetchAllAdInsightsDaily,
+} from "./metaClient.js";
 import "dotenv/config";
 
 // Sincroniza campanhas/conjuntos/anúncios/insights da conta configurada.
@@ -40,18 +46,37 @@ export async function runSync({ triggeredBy, daysBack = 7 }) {
 
     // 3) Anúncios — uma chamada para a conta toda
     const metaAds = await fetchAllAds(adAccountId);
+    const adIdMap = new Map(); // meta_ad_id -> id interno
     for (const ad of metaAds) {
       const adsetId = adsetIdMap.get(ad.adset_id);
       if (!adsetId) continue;
-      await upsertAd(ad, adsetId);
+      const row = await upsertAd(ad, adsetId);
+      adIdMap.set(ad.id, row.id);
     }
 
-    // 4) Insights diários — uma série de chamadas paginadas para a conta toda
+    // 4) Insights diários por CAMPANHA — usados no cálculo de investimento/ROI da Visão Geral
     const insights = await fetchAllInsightsDaily(adAccountId, daysBack);
     for (const insight of insights) {
       const campaignId = campaignIdMap.get(insight.campaign_id);
       if (!campaignId) continue;
-      const result = await upsertInsight(campaignId, insight);
+      const result = await upsertInsight(
+        { campaignId, adsetId: null, adId: null },
+        insight
+      );
+      if (result === "inserted") recordsInserted++;
+      else recordsSkippedDuplicate++;
+    }
+
+    // 5) Insights diários por ANÚNCIO — usados para mostrar gasto/cliques de cada
+    // anúncio individual no painel da campanha (não entram no cálculo da Visão Geral,
+    // que já soma pelo nível de campanha, para não contar o investimento em dobro).
+    const adInsights = await fetchAllAdInsightsDaily(adAccountId, daysBack);
+    for (const insight of adInsights) {
+      const campaignId = campaignIdMap.get(insight.campaign_id);
+      const adsetId = adsetIdMap.get(insight.adset_id);
+      const adId = adIdMap.get(insight.ad_id);
+      if (!campaignId || !adsetId || !adId) continue;
+      const result = await upsertInsight({ campaignId, adsetId, adId }, insight);
       if (result === "inserted") recordsInserted++;
       else recordsSkippedDuplicate++;
     }
@@ -119,23 +144,26 @@ async function upsertAdset(as, campaignId) {
 }
 
 async function upsertAd(ad, adsetId) {
-  await pool.query(
+  const res = await pool.query(
     `INSERT INTO ads (meta_ad_id, adset_id, name, status, creative_thumbnail_url, created_time, last_synced_at)
      VALUES ($1, $2, $3, $4, $5, $6, now())
      ON CONFLICT (meta_ad_id) DO UPDATE SET
        name=EXCLUDED.name, status=EXCLUDED.status,
-       creative_thumbnail_url=EXCLUDED.creative_thumbnail_url, last_synced_at=now()`,
+       creative_thumbnail_url=EXCLUDED.creative_thumbnail_url, last_synced_at=now()
+     RETURNING id`,
     [ad.id, adsetId, ad.name, ad.status || null, ad.creative?.thumbnail_url || null, ad.created_time || null]
   );
+  return res.rows[0];
 }
 
-// Upsert em campaign_insights_daily. Retorna 'inserted' ou 'updated' apenas para contagem no log
-// (a trava real contra duplicidade é a constraint UNIQUE(campaign_id, adset_id, ad_id, date)).
-async function upsertInsight(campaignId, insight) {
+// Upsert em campaign_insights_daily, em qualquer nível (campanha, ou campanha+conjunto+anúncio).
+// Retorna 'inserted' ou 'updated' apenas para contagem no log (a trava real contra
+// duplicidade é a constraint UNIQUE(campaign_id, adset_id, ad_id, date)).
+async function upsertInsight({ campaignId, adsetId, adId }, insight) {
   const res = await pool.query(
     `INSERT INTO campaign_insights_daily
        (campaign_id, adset_id, ad_id, date, spend, impressions, reach, clicks, cpc, cpm, ctr, frequency, synced_at)
-     VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
      ON CONFLICT (campaign_id, adset_id, ad_id, date) DO UPDATE SET
        spend=EXCLUDED.spend, impressions=EXCLUDED.impressions, reach=EXCLUDED.reach,
        clicks=EXCLUDED.clicks, cpc=EXCLUDED.cpc, cpm=EXCLUDED.cpm, ctr=EXCLUDED.ctr,
@@ -143,6 +171,8 @@ async function upsertInsight(campaignId, insight) {
      RETURNING (xmax = 0) AS inserted`,
     [
       campaignId,
+      adsetId,
+      adId,
       insight.date_start,
       Number(insight.spend || 0),
       Number(insight.impressions || 0),

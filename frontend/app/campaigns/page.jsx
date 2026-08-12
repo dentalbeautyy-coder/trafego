@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { money, number } from "../lib/format";
 
@@ -11,6 +11,7 @@ export default function CampaignsPage() {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [onlyActive, setOnlyActive] = useState(true);
 
   useEffect(() => {
     load();
@@ -44,6 +45,11 @@ export default function CampaignsPage() {
     }
   }
 
+  const visibleCampaigns = useMemo(
+    () => (onlyActive ? campaigns.filter((c) => c.status === "ACTIVE") : campaigns),
+    [campaigns, onlyActive]
+  );
+
   return (
     <>
       <div className="page-header">
@@ -67,8 +73,13 @@ export default function CampaignsPage() {
       </div>
 
       <div className="card">
-        <div className="card-pad" style={{ paddingBottom: 0 }}>
-          <div className="section-title">Todas as campanhas</div>
+        <div className="card-pad" style={{ paddingBottom: 0, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div className="section-title" style={{ margin: 0 }}>
+            {onlyActive ? "Campanhas ativas" : "Todas as campanhas"} ({visibleCampaigns.length})
+          </div>
+          <button className="secondary" onClick={() => setOnlyActive((v) => !v)}>
+            {onlyActive ? "Mostrar todas" : "Mostrar só ativas"}
+          </button>
         </div>
         <div className="table-scroll">
           <table>
@@ -79,11 +90,14 @@ export default function CampaignsPage() {
                 <th>Origem</th>
                 <th>Status</th>
                 <th>Orçamento/dia</th>
-                <th>Criada em</th>
+                <th>Chegaram</th>
+                <th>Agendamentos</th>
+                <th>Fechamentos</th>
+                <th>Valor vendido</th>
               </tr>
             </thead>
             <tbody>
-              {campaigns.map((c) => (
+              {visibleCampaigns.map((c) => (
                 <CampaignRow
                   key={c.id}
                   campaign={c}
@@ -93,7 +107,9 @@ export default function CampaignsPage() {
               ))}
             </tbody>
           </table>
-          {!loading && campaigns.length === 0 && <div className="empty">Nenhuma campanha cadastrada ainda.</div>}
+          {!loading && visibleCampaigns.length === 0 && (
+            <div className="empty">{onlyActive ? "Nenhuma campanha ativa no momento." : "Nenhuma campanha cadastrada ainda."}</div>
+          )}
         </div>
       </div>
     </>
@@ -113,13 +129,14 @@ function CampaignRow({ campaign, expanded, onToggle }) {
           <span className={`pill ${String(campaign.status).toLowerCase()}`}>{campaign.status}</span>
         </td>
         <td>{money(campaign.daily_budget)}</td>
-        <td className="muted">
-          {campaign.created_time ? new Date(campaign.created_time).toLocaleDateString("pt-BR") : "—"}
-        </td>
+        <td>{number(campaign.leads_arrived)}</td>
+        <td>{number(campaign.scheduled_count)}</td>
+        <td>{number(campaign.closed_count)}</td>
+        <td>{money(campaign.sale_value_total)}</td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
+          <td colSpan={9} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
             <CampaignAdsPanel campaignId={campaign.id} />
           </td>
         </tr>
@@ -151,7 +168,8 @@ function CampaignAdsPanel({ campaignId }) {
             <tr>
               <th>Anúncio</th>
               <th>Conjunto</th>
-              <th>Orçamento/dia (conjunto)</th>
+              <th>Gasto (Meta)</th>
+              <th>Cliques (Meta)</th>
               <th>Leads (Meta)</th>
               <th>Chegaram de fato</th>
               <th>Agendamentos</th>
@@ -203,7 +221,8 @@ function AdFunnelRow({ ad }) {
     <tr>
       <td>{ad.name}</td>
       <td className="muted">{ad.adset_name}</td>
-      <td className="muted">{money(ad.adset_daily_budget)}</td>
+      <td className="muted">{money(ad.spend)}</td>
+      <td className="muted">{number(ad.clicks)}</td>
       <td className="muted">{number(ad.leads_from_meta)}</td>
       <td>
         <CountInput value={values.leads_arrived} onSave={(v) => save("leads_arrived", v)} disabled={saving} />
