@@ -21,10 +21,7 @@ export default function CampaignsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getCampaigns();
-      setCampaigns(data);
-      // Abre todas por padrão — o resumo já aparece sem precisar clicar.
-      setExpandedIds(new Set(data.map((c) => c.id)));
+      setCampaigns(await api.getCampaigns());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,6 +122,34 @@ export default function CampaignsPage() {
 }
 
 function CampaignRow({ campaign, expanded, onToggle }) {
+  const [detail, setDetail] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Busca o detalhe (anúncios) uma vez, independente de estar expandida ou não —
+  // o resumo abaixo precisa desse dado sempre visível, sem depender do +/-.
+  useEffect(() => {
+    api
+      .getCampaignDetail(campaign.id)
+      .then(setDetail)
+      .catch((err) => setError(err.message));
+  }, [campaign.id]);
+
+  const campaignTotal = useMemo(() => {
+    if (!detail) return null;
+    return detail.ads.reduce(
+      (acc, ad) => {
+        acc.spend += Number(ad.spend) || 0;
+        acc.clicks += Number(ad.clicks) || 0;
+        acc.leadsArrived += Number(ad.leads_arrived) || 0;
+        acc.scheduled += Number(ad.scheduled_count) || 0;
+        acc.closed += Number(ad.closed_count) || 0;
+        acc.revenue += Number(ad.sale_value_total) || 0;
+        return acc;
+      },
+      { spend: 0, clicks: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
+    );
+  }, [detail]);
+
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: "pointer" }}>
@@ -138,10 +163,34 @@ function CampaignRow({ campaign, expanded, onToggle }) {
         </td>
         <td>{money(campaign.daily_budget)}</td>
       </tr>
+
+      {/* Resumo — sempre visível, não depende do +/- */}
+      <tr>
+        <td colSpan={5} style={{ padding: 0, borderBottom: expanded ? "none" : "1px solid var(--border)" }}>
+          <div style={{ background: "var(--bg)", padding: 16, paddingBottom: expanded ? 0 : 16 }}>
+            {error && <div className="error-banner">{error}</div>}
+            {!error && !detail && <div className="empty">Carregando…</div>}
+            {campaignTotal && (
+              <div className="card card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", fontSize: 13 }}>
+                <SubtotalItem label="Gasto total (Meta)" value={money(campaignTotal.spend)} />
+                <SubtotalItem label="Cliques (Meta)" value={number(campaignTotal.clicks)} />
+                <SubtotalItem label="Custo/clique" value={money(campaignTotal.clicks > 0 ? campaignTotal.spend / campaignTotal.clicks : null)} />
+                <SubtotalItem label="Custo/lead real" value={money(campaignTotal.leadsArrived > 0 ? campaignTotal.spend / campaignTotal.leadsArrived : null)} />
+                <SubtotalItem label="Chegaram" value={number(campaignTotal.leadsArrived)} />
+                <SubtotalItem label="Agendamentos" value={number(campaignTotal.scheduled)} />
+                <SubtotalItem label="Fechamentos" value={number(campaignTotal.closed)} />
+                <SubtotalItem label="Valor vendido" value={money(campaignTotal.revenue)} />
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+
+      {/* Detalhamento por conjunto — só aparece com o +/- */}
       {expanded && (
         <tr>
           <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
-            <CampaignAdsPanel campaignId={campaign.id} />
+            <CampaignAdsBreakdown campaignId={campaign.id} detail={detail} error={error} />
           </td>
         </tr>
       )}
@@ -149,18 +198,9 @@ function CampaignRow({ campaign, expanded, onToggle }) {
   );
 }
 
-function CampaignAdsPanel({ campaignId }) {
-  const [detail, setDetail] = useState(null);
-  const [error, setError] = useState(null);
+function CampaignAdsBreakdown({ campaignId, detail, error }) {
   const [adsetFilter, setAdsetFilter] = useState("");
   const [nameFilter, setNameFilter] = useState("");
-
-  useEffect(() => {
-    api
-      .getCampaignDetail(campaignId)
-      .then(setDetail)
-      .catch((err) => setError(err.message));
-  }, [campaignId]);
 
   const adsetOptions = useMemo(() => {
     if (!detail) return [];
@@ -188,42 +228,12 @@ function CampaignAdsPanel({ campaignId }) {
     return Array.from(map.values()).sort((a, b) => a.adsetName.localeCompare(b.adsetName));
   }, [filteredAds]);
 
-  const campaignTotal = useMemo(() => {
-    if (!detail) return null;
-    return detail.ads.reduce(
-      (acc, ad) => {
-        acc.spend += Number(ad.spend) || 0;
-        acc.clicks += Number(ad.clicks) || 0;
-        acc.leadsArrived += Number(ad.leads_arrived) || 0;
-        acc.scheduled += Number(ad.scheduled_count) || 0;
-        acc.closed += Number(ad.closed_count) || 0;
-        acc.revenue += Number(ad.sale_value_total) || 0;
-        return acc;
-      },
-      { spend: 0, clicks: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
-    );
-  }, [detail]);
-
-  if (error) return <div className="error-banner" style={{ margin: 16 }}>{error}</div>;
-  if (!detail) return <div className="empty">Carregando anúncios…</div>;
-  if (!detail.ads.length) return <div className="empty">Essa campanha ainda não tem anúncios sincronizados.</div>;
-
-  const campaignCostPerClick = campaignTotal.clicks > 0 ? campaignTotal.spend / campaignTotal.clicks : null;
-  const campaignCostPerRealLead = campaignTotal.leadsArrived > 0 ? campaignTotal.spend / campaignTotal.leadsArrived : null;
+  if (error) return null;
+  if (!detail) return <div className="empty" style={{ padding: 16 }}>Carregando anúncios…</div>;
+  if (!detail.ads.length) return <div className="empty" style={{ padding: 16 }}>Essa campanha ainda não tem anúncios sincronizados.</div>;
 
   return (
-    <div style={{ background: "var(--bg)", padding: 16 }}>
-      <div className="card card-pad" style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", fontSize: 13 }}>
-        <SubtotalItem label="Gasto total (Meta)" value={money(campaignTotal.spend)} />
-        <SubtotalItem label="Cliques (Meta)" value={number(campaignTotal.clicks)} />
-        <SubtotalItem label="Custo/clique" value={money(campaignCostPerClick)} />
-        <SubtotalItem label="Custo/lead real" value={money(campaignCostPerRealLead)} />
-        <SubtotalItem label="Chegaram" value={number(campaignTotal.leadsArrived)} />
-        <SubtotalItem label="Agendamentos" value={number(campaignTotal.scheduled)} />
-        <SubtotalItem label="Fechamentos" value={number(campaignTotal.closed)} />
-        <SubtotalItem label="Valor vendido" value={money(campaignTotal.revenue)} />
-      </div>
-
+    <div style={{ background: "var(--bg)", padding: 16, paddingTop: 0 }}>
       <div className="toolbar" style={{ marginBottom: 12 }}>
         <div className="field">
           <label htmlFor={`adset-filter-${campaignId}`}>Conjunto</label>
