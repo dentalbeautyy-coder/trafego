@@ -11,9 +11,11 @@ Especificação completa da arquitetura: ver o documento publicado no chat (`das
 - [x] Endpoints do funil manual (leads, agendamento, comparecimento, fechamento, valor vendido)
 - [x] Cálculo de métricas (CPL, CPA, CAC, ROI, taxas de conversão)
 - [x] Campanhas manuais (indicação, evento) sem sync automático
-- [ ] Frontend (telas do dashboard) — próximo passo
+- [x] Sincroniza só campanhas ativas/pausadas, em lote por conta (evita rate limit da Meta)
+- [x] Frontend (Next.js) — Visão geral, Campanhas, Leads, Sincronização
+- [x] Deploy do backend no Render, integrado com a conta real da Dental Beauty
+- [ ] Deploy do frontend no Render
 - [ ] Login da equipe
-- [ ] Deploy no Render
 
 ## Rodar localmente
 
@@ -59,6 +61,27 @@ curl "http://localhost:3001/api/metrics?from=2026-08-01&to=2026-08-12"
 3. Em "Environment", cole as mesmas variáveis do `.env.example` (a `DATABASE_URL` é a do passo 1).
 4. Após o primeiro deploy, rode a migração uma vez via o "Shell" do próprio serviço no Render: `npm run migrate`.
 5. O cron das 8h já roda dentro do próprio processo (`node-cron`), sem precisar de um cron job separado do Render — só o serviço precisa ficar sempre ativo (planos gratuitos do Render "dormem" após inatividade, o que quebraria o cron; para produção real, use um plano pago ou o "Cron Job" nativo do Render chamando `POST /api/sync/run`).
+
+## Frontend
+
+Next.js, pasta `frontend/`. Consome a API do backend via `NEXT_PUBLIC_API_BASE_URL`.
+
+Rodar localmente:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+# ajuste NEXT_PUBLIC_API_BASE_URL para a URL do backend (local ou Render)
+npm run dev   # http://localhost:3000
+```
+
+Deploy no Render (outro Web Service, no mesmo repositório):
+
+- **Root Directory**: `frontend`
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
+- **Environment Variables**: `NEXT_PUBLIC_API_BASE_URL` = URL pública do backend (ex: `https://trafego-818r.onrender.com`)
 
 ## Segurança
 
