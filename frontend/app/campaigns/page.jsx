@@ -10,7 +10,7 @@ export default function CampaignsPage() {
   const [error, setError] = useState(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(new Set());
   const [onlyActive, setOnlyActive] = useState(true);
 
   useEffect(() => {
@@ -21,12 +21,24 @@ export default function CampaignsPage() {
     setLoading(true);
     setError(null);
     try {
-      setCampaigns(await api.getCampaigns());
+      const data = await api.getCampaigns();
+      setCampaigns(data);
+      // Abre todas por padrão — o resumo já aparece sem precisar clicar.
+      setExpandedIds(new Set(data.map((c) => c.id)));
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleExpanded(id) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function handleCreate(e) {
@@ -97,8 +109,8 @@ export default function CampaignsPage() {
                 <CampaignRow
                   key={c.id}
                   campaign={c}
-                  expanded={expandedId === c.id}
-                  onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
+                  expanded={expandedIds.has(c.id)}
+                  onToggle={() => toggleExpanded(c.id)}
                 />
               ))}
             </tbody>
