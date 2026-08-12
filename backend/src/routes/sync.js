@@ -9,7 +9,7 @@ syncRouter.post("/run", async (req, res) => {
     const result = await runSync({ triggeredBy: "manual_button" });
     res.json(result);
   } catch (err) {
-    res.status(502).json({ error: "Falha na sincronização com a Meta", detail: String(err.message || err) });
+    res.status(502).json({ error: "Falha na sincronização com a Meta", detail: err.message || String(err) });
   }
 });
 

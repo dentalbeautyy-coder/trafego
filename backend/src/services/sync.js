@@ -15,41 +15,50 @@ export async function runSync({ triggeredBy, daysBack = 7 }) {
   let campaignsSynced = 0;
   let recordsInserted = 0;
   let recordsSkippedDuplicate = 0;
+  const campaignErrors = [];
 
   try {
     const adAccountId = process.env.META_AD_ACCOUNT_ID;
     const metaCampaigns = await fetchCampaigns(adAccountId);
 
     for (const mc of metaCampaigns) {
-      const campaignRow = await upsertCampaign(mc);
-      campaignsSynced++;
+      try {
+        const campaignRow = await upsertCampaign(mc);
 
-      const adsets = await fetchAdSets(mc.id);
-      for (const as of adsets) {
-        const adsetRow = await upsertAdset(as, campaignRow.id);
-        const ads = await fetchAds(as.id);
-        for (const ad of ads) {
-          await upsertAd(ad, adsetRow.id);
+        const adsets = await fetchAdSets(mc.id);
+        for (const as of adsets) {
+          const adsetRow = await upsertAdset(as, campaignRow.id);
+          const ads = await fetchAds(as.id);
+          for (const ad of ads) {
+            await upsertAd(ad, adsetRow.id);
+          }
         }
-      }
 
-      const insights = await fetchCampaignInsightsDaily(mc.id, daysBack);
-      for (const insight of insights) {
-        const result = await upsertInsight(campaignRow.id, insight);
-        if (result === "inserted") recordsInserted++;
-        else recordsSkippedDuplicate++;
+        const insights = await fetchCampaignInsightsDaily(mc.id, daysBack);
+        for (const insight of insights) {
+          const result = await upsertInsight(campaignRow.id, insight);
+          if (result === "inserted") recordsInserted++;
+          else recordsSkippedDuplicate++;
+        }
+
+        campaignsSynced++;
+      } catch (campaignErr) {
+        // Uma campanha com problema (ex: sem permissão, deletada) não deve derrubar as outras.
+        campaignErrors.push(`${mc.name || mc.id}: ${campaignErr.message}`);
       }
     }
 
+    const status = campaignErrors.length === 0 ? "success" : "partial";
     await pool.query(
-      `UPDATE sync_logs SET status='success', finished_at=now(),
-       campaigns_synced=$1, records_inserted=$2, records_skipped_duplicate=$3
-       WHERE id=$4`,
-      [campaignsSynced, recordsInserted, recordsSkippedDuplicate, logId]
+      `UPDATE sync_logs SET status=$1, finished_at=now(),
+       campaigns_synced=$2, records_inserted=$3, records_skipped_duplicate=$4, error_message=$5
+       WHERE id=$6`,
+      [status, campaignsSynced, recordsInserted, recordsSkippedDuplicate, campaignErrors.join(" | ") || null, logId]
     );
 
-    return { status: "success", campaignsSynced, recordsInserted, recordsSkippedDuplicate };
+    return { status, campaignsSynced, recordsInserted, recordsSkippedDuplicate, campaignErrors };
   } catch (err) {
+    // Erro fora do loop por campanha (ex: fetchCampaigns falhou — token inválido, conta errada)
     await pool.query(
       `UPDATE sync_logs SET status='failed', finished_at=now(), error_message=$1,
        campaigns_synced=$2, records_inserted=$3, records_skipped_duplicate=$4

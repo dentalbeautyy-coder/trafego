@@ -20,12 +20,21 @@ async function getAllPages(path, params) {
   const results = [];
 
   while (url) {
-    const res = await http.get(url, { params: queryParams });
-    results.push(...(res.data.data || []));
-    const next = res.data.paging?.next;
-    if (!next) break;
-    url = next; // URL absoluta já inclui token e cursor; próxima chamada não reaplica params
-    queryParams = undefined;
+    try {
+      const res = await http.get(url, { params: queryParams });
+      results.push(...(res.data.data || []));
+      const next = res.data.paging?.next;
+      if (!next) break;
+      url = next; // URL absoluta já inclui token e cursor; próxima chamada não reaplica params
+      queryParams = undefined;
+    } catch (err) {
+      const metaError = err.response?.data?.error;
+      if (metaError) {
+        const detail = `Meta API [${metaError.code}${metaError.error_subcode ? "/" + metaError.error_subcode : ""}] ${metaError.message}${metaError.error_user_msg ? " — " + metaError.error_user_msg : ""}`;
+        throw new Error(detail);
+      }
+      throw err;
+    }
   }
   return results;
 }
