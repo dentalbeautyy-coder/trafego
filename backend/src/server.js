@@ -3,7 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 
 import { campaignsRouter } from "./routes/campaigns.js";
-import { leadsRouter } from "./routes/leads.js";
+import { adsRouter } from "./routes/ads.js";
 import { syncRouter } from "./routes/sync.js";
 import { metricsRouter } from "./routes/metrics.js";
 import { spendRouter } from "./routes/spend.js";
@@ -16,7 +16,7 @@ app.use(express.json());
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/campaigns", campaignsRouter);
-app.use("/api/leads", leadsRouter);
+app.use("/api/ads", adsRouter);
 app.use("/api/sync", syncRouter);
 app.use("/api/metrics", metricsRouter);
 app.use("/api/spend", spendRouter);

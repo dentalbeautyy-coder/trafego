@@ -5,9 +5,8 @@ import { api } from "./lib/api";
 import { money, percent, number, isoDaysAgo } from "./lib/format";
 
 const FUNNEL_STEPS = [
-  { key: "leads", label: "Leads" },
-  { key: "scheduled", label: "Agendados" },
-  { key: "attended", label: "Compareceram" },
+  { key: "leads", label: "Chegaram" },
+  { key: "scheduled", label: "Agendaram" },
   { key: "closed", label: "Fecharam" },
 ];
 
@@ -42,12 +41,11 @@ export default function OverviewPage() {
         acc.investment += Number(r.investment) || 0;
         acc.leads += r.leads || 0;
         acc.scheduled += r.scheduled || 0;
-        acc.attended += r.attended || 0;
         acc.closed += r.closed || 0;
         acc.revenue += Number(r.revenue) || 0;
         return acc;
       },
-      { investment: 0, leads: 0, scheduled: 0, attended: 0, closed: 0, revenue: 0 }
+      { investment: 0, leads: 0, scheduled: 0, closed: 0, revenue: 0 }
     );
     t.roi = t.investment > 0 ? (t.revenue - t.investment) / t.investment : null;
     t.cpl = t.leads > 0 ? t.investment / t.leads : null;
@@ -61,7 +59,7 @@ export default function OverviewPage() {
     <>
       <div className="page-header">
         <h1>Visão geral</h1>
-        <p>Investimento vem da Meta automaticamente; leads, agendamentos, comparecimentos e fechamentos são preenchidos manualmente pela equipe.</p>
+        <p>Investimento e orçamento vêm da Meta automaticamente. Leads chegados, agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos manualmente por anúncio (aba Campanhas).</p>
       </div>
 
       <div className="toolbar">
@@ -82,9 +80,8 @@ export default function OverviewPage() {
 
       <div className="stat-grid">
         <Stat label="Investimento total" value={money(totals.investment)} />
-        <Stat label="Leads" value={number(totals.leads)} />
+        <Stat label="Chegaram" value={number(totals.leads)} />
         <Stat label="Agendamentos" value={number(totals.scheduled)} />
-        <Stat label="Comparecimentos" value={number(totals.attended)} />
         <Stat label="Fechamentos" value={number(totals.closed)} />
         <Stat label="Faturamento" value={money(totals.revenue)} />
         <Stat label="Custo por lead" value={money(totals.cpl)} />

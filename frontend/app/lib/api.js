@@ -18,11 +18,9 @@ export const api = {
   createManualCampaign: (data) =>
     request("/api/campaigns/manual", { method: "POST", body: JSON.stringify(data) }),
 
-  getLeads: (campaignId) =>
-    request(`/api/leads${campaignId ? `?campaignId=${campaignId}` : ""}`),
-  createLead: (data) => request("/api/leads", { method: "POST", body: JSON.stringify(data) }),
-  updateLead: (id, data) =>
-    request(`/api/leads/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  getCampaignDetail: (campaignId) => request(`/api/campaigns/${campaignId}/detail`),
+  updateAdFunnel: (adId, data) =>
+    request(`/api/ads/${adId}/funnel`, { method: "PATCH", body: JSON.stringify(data) }),
 
   getMetrics: (from, to, campaignId) =>
     request(`/api/metrics?from=${from}&to=${to}${campaignId ? `&campaignId=${campaignId}` : ""}`),

@@ -95,26 +95,21 @@ CREATE TABLE IF NOT EXISTS meta_leads (
 -- Tabelas de preenchimento manual — o funil de verdade
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS patient_leads (
+-- Nunca teve dado real cadastrado — substituída pelo modelo de contadores por anúncio abaixo.
+DROP TABLE IF EXISTS patient_leads;
+
+-- Contadores acumulados por anúncio (não por paciente individual, não quebrado por dia).
+-- "leads_from_meta" é automático (contagem de meta_leads, só populado se o Caminho A —
+-- formulário nativo — estiver em uso); os demais campos são sempre preenchidos manualmente
+-- pela equipe, e vão sendo somados/atualizados ao longo do tempo.
+CREATE TABLE IF NOT EXISTS ad_manual_funnel (
   id SERIAL PRIMARY KEY,
-  campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
-  meta_lead_id INTEGER REFERENCES meta_leads(id),
-  patient_name TEXT NOT NULL,
-  phone TEXT,
-  source_channel TEXT NOT NULL DEFAULT 'whatsapp'
-    CHECK (source_channel IN ('meta_lead_form', 'whatsapp', 'site', 'indicacao', 'evento', 'outro')),
-  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  scheduled BOOLEAN NOT NULL DEFAULT false,
-  scheduled_at TIMESTAMPTZ,
-  attended BOOLEAN NOT NULL DEFAULT false,
-  attended_at TIMESTAMPTZ,
-  closed BOOLEAN NOT NULL DEFAULT false,
-  closed_at TIMESTAMPTZ,
-  sale_value NUMERIC(10,2),
-  notes TEXT,
-  created_by TEXT,
+  ad_id INTEGER NOT NULL UNIQUE REFERENCES ads(id) ON DELETE CASCADE,
+  leads_arrived INTEGER NOT NULL DEFAULT 0,   -- chegaram de fato na conversa (WhatsApp etc.)
+  scheduled_count INTEGER NOT NULL DEFAULT 0,
+  closed_count INTEGER NOT NULL DEFAULT 0,
+  sale_value_total NUMERIC(10,2) NOT NULL DEFAULT 0,
   updated_by TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -143,5 +138,3 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 -- Índices de apoio para os filtros do dashboard (período + campanha)
 CREATE INDEX IF NOT EXISTS idx_insights_date ON campaign_insights_daily(date);
 CREATE INDEX IF NOT EXISTS idx_insights_campaign ON campaign_insights_daily(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_patient_leads_campaign ON patient_leads(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_patient_leads_received ON patient_leads(received_at);

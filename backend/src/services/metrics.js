@@ -1,7 +1,9 @@
 import { pool } from "../config/db.js";
 
-// Métricas por campanha, no período informado. Junta gasto (Meta + manual) com o funil manual.
-// Todos os valores aqui são calculados — nenhum é digitado diretamente por ninguém.
+// Métricas por campanha. Investimento é sempre por período (from/to), vindo da Meta
+// + gasto manual. Os números do funil (chegaram/agendaram/fecharam/valor) são
+// contadores ACUMULADOS por anúncio, preenchidos manualmente — não são quebrados
+// por dia, então representam o total até agora, não só o período do filtro.
 export async function getCampaignMetrics({ from, to, campaignId }) {
   const params = [from, to];
   let campaignFilter = "";
@@ -24,17 +26,17 @@ export async function getCampaignMetrics({ from, to, campaignId }) {
       WHERE date BETWEEN $1 AND $2
       GROUP BY campaign_id
     ),
-    leads AS (
+    funnel AS (
       SELECT
-        campaign_id,
-        COUNT(*) AS lead_count,
-        COUNT(*) FILTER (WHERE scheduled) AS scheduled_count,
-        COUNT(*) FILTER (WHERE attended) AS attended_count,
-        COUNT(*) FILTER (WHERE closed) AS closed_count,
-        COALESCE(SUM(sale_value) FILTER (WHERE closed), 0) AS revenue
-      FROM patient_leads
-      WHERE received_at::date BETWEEN $1 AND $2
-      GROUP BY campaign_id
+        ase.campaign_id,
+        COALESCE(SUM(f.leads_arrived), 0) AS leads_arrived,
+        COALESCE(SUM(f.scheduled_count), 0) AS scheduled_count,
+        COALESCE(SUM(f.closed_count), 0) AS closed_count,
+        COALESCE(SUM(f.sale_value_total), 0) AS revenue
+      FROM ad_manual_funnel f
+      JOIN ads a ON a.id = f.ad_id
+      JOIN adsets ase ON ase.id = a.adset_id
+      GROUP BY ase.campaign_id
     )
     SELECT
       c.id AS campaign_id,
@@ -42,15 +44,14 @@ export async function getCampaignMetrics({ from, to, campaignId }) {
       c.source,
       c.status,
       COALESCE(spend.meta_spend, 0) + COALESCE(manual_spend.manual_spend, 0) AS investment,
-      COALESCE(leads.lead_count, 0) AS leads,
-      COALESCE(leads.scheduled_count, 0) AS scheduled,
-      COALESCE(leads.attended_count, 0) AS attended,
-      COALESCE(leads.closed_count, 0) AS closed,
-      COALESCE(leads.revenue, 0) AS revenue
+      COALESCE(funnel.leads_arrived, 0) AS leads,
+      COALESCE(funnel.scheduled_count, 0) AS scheduled,
+      COALESCE(funnel.closed_count, 0) AS closed,
+      COALESCE(funnel.revenue, 0) AS revenue
     FROM campaigns c
     LEFT JOIN spend ON spend.campaign_id = c.id
     LEFT JOIN manual_spend ON manual_spend.campaign_id = c.id
-    LEFT JOIN leads ON leads.campaign_id = c.id
+    LEFT JOIN funnel ON funnel.campaign_id = c.id
     WHERE 1=1 ${campaignFilter}
     ORDER BY investment DESC NULLS LAST
     `,
@@ -64,7 +65,6 @@ function deriveRatios(row) {
   const investment = Number(row.investment);
   const leads = Number(row.leads);
   const scheduled = Number(row.scheduled);
-  const attended = Number(row.attended);
   const closed = Number(row.closed);
   const revenue = Number(row.revenue);
 
@@ -78,18 +78,15 @@ function deriveRatios(row) {
     investment,
     leads,
     scheduled,
-    attended,
     closed,
     revenue,
     costPerLead: safeDiv(investment, leads),
     costPerScheduled: safeDiv(investment, scheduled),
-    costPerAttended: safeDiv(investment, attended),
     costPerClosed: safeDiv(investment, closed),
     roi: investment > 0 ? (revenue - investment) / investment : null,
     avgTicket: safeDiv(revenue, closed),
     conversionLeadToScheduled: safeDiv(scheduled, leads),
-    conversionScheduledToAttended: safeDiv(attended, scheduled),
-    conversionAttendedToClosed: safeDiv(closed, attended),
+    conversionScheduledToClosed: safeDiv(closed, scheduled),
     conversionLeadToClosed: safeDiv(closed, leads),
   };
 }

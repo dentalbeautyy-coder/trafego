@@ -8,13 +8,12 @@ Especificação completa da arquitetura: ver o documento publicado no chat (`das
 - [x] Schema do banco (`backend/db/schema.sql`)
 - [x] Sincronização com a Meta Graph API (campanhas, conjuntos, anúncios, insights diários) — idempotente
 - [x] Cron diário às 08:00 (horário de Brasília) + botão de sincronização manual (`POST /api/sync/run`)
-- [x] Endpoints do funil manual (leads, agendamento, comparecimento, fechamento, valor vendido)
-- [x] Cálculo de métricas (CPL, CPA, CAC, ROI, taxas de conversão)
+- [x] Funil manual por anúncio: contadores acumulados (chegaram/agendaram/fecharam/valor vendido)
+- [x] Cálculo de métricas (CPL, CAC, ROI, taxas de conversão)
 - [x] Campanhas manuais (indicação, evento) sem sync automático
 - [x] Sincroniza só campanhas ativas/pausadas, em lote por conta (evita rate limit da Meta)
-- [x] Frontend (Next.js) — Visão geral, Campanhas, Leads, Sincronização
-- [x] Deploy do backend no Render, integrado com a conta real da Dental Beauty
-- [ ] Deploy do frontend no Render
+- [x] Frontend (Next.js) — Visão geral, Campanhas (com painel expansível de anúncios), Sincronização
+- [x] Deploy do backend e frontend no Render, integrado com a conta real da Dental Beauty
 - [ ] Login da equipe
 
 ## Rodar localmente
@@ -42,11 +41,10 @@ curl "http://localhost:3001/api/metrics?from=2026-08-01&to=2026-08-12"
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/campaigns` | Lista campanhas (Meta + manuais) |
+| GET | `/api/campaigns` | Lista campanhas (Meta + manuais), com orçamento diário |
 | POST | `/api/campaigns/manual` | Cria campanha manual (indicação, evento) |
-| GET | `/api/leads` | Lista leads/pacientes do funil |
-| POST | `/api/leads` | Cadastra um novo lead, vinculado a uma campanha |
-| PATCH | `/api/leads/:id` | Atualiza etapas do funil (scheduled/attended/closed/sale_value) |
+| GET | `/api/campaigns/:id/detail` | Anúncios da campanha + leads automáticos da Meta + contadores manuais |
+| PATCH | `/api/ads/:id/funnel` | Atualiza contadores acumulados do anúncio (leadsArrived/scheduledCount/closedCount/saleValueTotal) |
 | POST | `/api/spend` | Registra investimento diário manual de uma campanha |
 | POST | `/api/sync/run` | Dispara sincronização manual com a Meta |
 | GET | `/api/sync/logs` | Histórico de sincronizações |
