@@ -164,13 +164,14 @@ async function upsertAd(ad, adsetId) {
 
 // Upsert em campaign_insights_daily, em qualquer nível (campanha, ou campanha+conjunto+anúncio).
 // Retorna 'inserted' ou 'updated' apenas para contagem no log (a trava real contra
-// duplicidade é a constraint UNIQUE(campaign_id, adset_id, ad_id, date)).
+// duplicidade é o índice único idx_insights_dedup, que trata NULL como 0 — ver schema.sql
+// para o porquê da constraint UNIQUE direta não funcionar com adset_id/ad_id nulos).
 async function upsertInsight({ campaignId, adsetId, adId }, insight) {
   const res = await pool.query(
     `INSERT INTO campaign_insights_daily
        (campaign_id, adset_id, ad_id, date, spend, impressions, reach, clicks, cpc, cpm, ctr, frequency, synced_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
-     ON CONFLICT (campaign_id, adset_id, ad_id, date) DO UPDATE SET
+     ON CONFLICT (campaign_id, (COALESCE(adset_id, 0)), (COALESCE(ad_id, 0)), date) DO UPDATE SET
        spend=EXCLUDED.spend, impressions=EXCLUDED.impressions, reach=EXCLUDED.reach,
        clicks=EXCLUDED.clicks, cpc=EXCLUDED.cpc, cpm=EXCLUDED.cpm, ctr=EXCLUDED.ctr,
        frequency=EXCLUDED.frequency, synced_at=now()

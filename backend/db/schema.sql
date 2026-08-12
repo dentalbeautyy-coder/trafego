@@ -72,8 +72,30 @@ CREATE TABLE IF NOT EXISTS campaign_insights_daily (
   cpm NUMERIC(10,4),
   ctr NUMERIC(6,4),
   frequency NUMERIC(6,4),
-  synced_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (campaign_id, adset_id, ad_id, date)
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- IMPORTANTE: NULL nunca é igual a NULL para efeito de UNIQUE no Postgres — uma
+-- constraint UNIQUE(campaign_id, adset_id, ad_id, date) direta NÃO evita duplicidade
+-- quando adset_id/ad_id são NULL (linhas em nível de campanha). Cada sincronização
+-- manual repetida inseria uma linha nova em vez de atualizar, multiplicando o
+-- investimento e os cliques reportados. Corrigido com um índice único por expressão,
+-- tratando NULL como 0 (nenhum registro de anúncio/conjunto real tem id 0).
+
+-- Remove duplicatas já inseridas antes da correção, mantendo a linha mais recente de cada grupo.
+DELETE FROM campaign_insights_daily a USING campaign_insights_daily b
+WHERE a.id < b.id
+  AND a.campaign_id = b.campaign_id
+  AND COALESCE(a.adset_id, 0) = COALESCE(b.adset_id, 0)
+  AND COALESCE(a.ad_id, 0) = COALESCE(b.ad_id, 0)
+  AND a.date = b.date;
+
+-- Remove a constraint antiga (com o nome padrão que o Postgres gerou para o UNIQUE inline).
+ALTER TABLE campaign_insights_daily
+  DROP CONSTRAINT IF EXISTS campaign_insights_daily_campaign_id_adset_id_ad_id_date_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_insights_dedup ON campaign_insights_daily (
+  campaign_id, COALESCE(adset_id, 0), COALESCE(ad_id, 0), date
 );
 
 -- Leads nativos da Meta (Lead Ads) — só populada se o Caminho A estiver em uso
