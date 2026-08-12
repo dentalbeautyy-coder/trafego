@@ -80,7 +80,7 @@ export async function fetchAllAds(adAccountId) {
 export async function fetchAllInsightsDaily(adAccountId, daysBack = 7) {
   return getAllPages(`/${adAccountId}/insights`, {
     level: "campaign",
-    fields: "campaign_id,spend,impressions,reach,clicks,cpc,cpm,ctr,frequency,date_start,date_stop",
+    fields: "campaign_id,spend,impressions,reach,clicks,cpc,cpm,ctr,frequency,actions,date_start,date_stop",
     time_increment: 1,
     time_range: JSON.stringify({
       since: daysAgo(daysBack),
@@ -95,7 +95,7 @@ export async function fetchAllInsightsDaily(adAccountId, daysBack = 7) {
 export async function fetchAllAdInsightsDaily(adAccountId, daysBack = 7) {
   return getAllPages(`/${adAccountId}/insights`, {
     level: "ad",
-    fields: "ad_id,adset_id,campaign_id,spend,impressions,clicks,cpc,cpm,ctr,date_start,date_stop",
+    fields: "ad_id,adset_id,campaign_id,spend,impressions,clicks,cpc,cpm,ctr,actions,date_start,date_stop",
     time_increment: 1,
     time_range: JSON.stringify({
       since: daysAgo(daysBack),

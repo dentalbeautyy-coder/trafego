@@ -169,12 +169,12 @@ async function upsertAd(ad, adsetId) {
 async function upsertInsight({ campaignId, adsetId, adId }, insight) {
   const res = await pool.query(
     `INSERT INTO campaign_insights_daily
-       (campaign_id, adset_id, ad_id, date, spend, impressions, reach, clicks, cpc, cpm, ctr, frequency, synced_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+       (campaign_id, adset_id, ad_id, date, spend, impressions, reach, clicks, cpc, cpm, ctr, frequency, results, synced_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
      ON CONFLICT (campaign_id, (COALESCE(adset_id, 0)), (COALESCE(ad_id, 0)), date) DO UPDATE SET
        spend=EXCLUDED.spend, impressions=EXCLUDED.impressions, reach=EXCLUDED.reach,
        clicks=EXCLUDED.clicks, cpc=EXCLUDED.cpc, cpm=EXCLUDED.cpm, ctr=EXCLUDED.ctr,
-       frequency=EXCLUDED.frequency, synced_at=now()
+       frequency=EXCLUDED.frequency, results=EXCLUDED.results, synced_at=now()
      RETURNING (xmax = 0) AS inserted`,
     [
       campaignId,
@@ -189,7 +189,27 @@ async function upsertInsight({ campaignId, adsetId, adId }, insight) {
       insight.cpm ? Number(insight.cpm) : null,
       insight.ctr ? Number(insight.ctr) : null,
       insight.frequency ? Number(insight.frequency) : null,
+      extractMessagingResults(insight.actions),
     ]
   );
   return res.rows[0].inserted ? "inserted" : "updated";
+}
+
+// A Meta não devolve um campo "resultados" pronto — o número que o Gerenciador de
+// Anúncios mostra como "Resultados" (ex: "Conversas por mensagem") vem de dentro do
+// array `actions`, filtrado pelo tipo de ação que bate com o objetivo da campanha.
+// Para campanhas de conversa por WhatsApp/Messenger, é messaging_conversation_started.
+const MESSAGING_RESULT_ACTION_TYPES = [
+  "onsite_conversion.messaging_conversation_started_7d",
+  "onsite_conversion.total_messaging_connection",
+  "onsite_conversion.messaging_first_reply",
+];
+
+function extractMessagingResults(actions) {
+  if (!Array.isArray(actions)) return 0;
+  for (const type of MESSAGING_RESULT_ACTION_TYPES) {
+    const match = actions.find((a) => a.action_type === type);
+    if (match) return Number(match.value || 0);
+  }
+  return 0;
 }

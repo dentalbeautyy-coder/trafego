@@ -58,16 +58,18 @@ export default function OverviewPage() {
       (acc, r) => {
         acc.investment += Number(r.investment) || 0;
         acc.clicks += r.clicks || 0;
+        acc.results += r.results || 0;
         acc.leads += r.leads || 0;
         acc.scheduled += r.scheduled || 0;
         acc.closed += r.closed || 0;
         acc.revenue += Number(r.revenue) || 0;
         return acc;
       },
-      { investment: 0, clicks: 0, leads: 0, scheduled: 0, closed: 0, revenue: 0 }
+      { investment: 0, clicks: 0, results: 0, leads: 0, scheduled: 0, closed: 0, revenue: 0 }
     );
     t.roi = t.investment > 0 ? (t.revenue - t.investment) / t.investment : null;
     t.cpc = t.clicks > 0 ? t.investment / t.clicks : null;
+    t.cpr = t.results > 0 ? t.investment / t.results : null;
     t.cpl = t.leads > 0 ? t.investment / t.leads : null;
     t.cps = t.scheduled > 0 ? t.investment / t.scheduled : null;
     t.cac = t.closed > 0 ? t.investment / t.closed : null;
@@ -83,7 +85,7 @@ export default function OverviewPage() {
     <>
       <div className="page-header">
         <h1>Visão geral</h1>
-        <p>Investimento e cliques vêm da Meta automaticamente. Custo por lead usa quem chegou de fato no CRM, não o "resultado" que a Meta reporta — é mais confiável. Agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
+        <p>Investimento e conversas iniciadas vêm da Meta automaticamente ("Resultados" no Gerenciador de Anúncios). Custo por lead usa quem chegou de fato no CRM — mais confiável que qualquer métrica só da Meta. Agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
       </div>
 
       <div className="toolbar">
@@ -107,8 +109,8 @@ export default function OverviewPage() {
           <Stat label="Investimento total" value={money(totals.investment)} big />
         </div>
 
-        <Stat label="Cliques no link" value={number(totals.clicks)} />
-        <Stat label="Custo por clique" value={money(totals.cpc)} />
+        <Stat label="Conversas iniciadas (Meta)" value={number(totals.results)} />
+        <Stat label="Custo por conversa" value={money(totals.cpr)} />
 
         <Stat label="Chegaram no CRM" value={number(totals.leads)} />
         <Stat label="Custo por lead que chegou" value={money(totals.cpl)} />
@@ -178,8 +180,8 @@ export default function OverviewPage() {
                 <th>Origem</th>
                 <th>Status</th>
                 <th>Investimento</th>
-                <th>Cliques</th>
-                <th>Custo/clique</th>
+                <th>Conversas (Meta)</th>
+                <th>Custo/conversa</th>
                 <th>Chegaram</th>
                 <th>Custo/lead</th>
                 <th>Fechamentos</th>
@@ -206,8 +208,8 @@ export default function OverviewPage() {
                     <span className={`pill ${String(r.status).toLowerCase()}`}>{r.status}</span>
                   </td>
                   <td>{money(r.investment)}</td>
-                  <td>{number(r.clicks)}</td>
-                  <td>{money(r.costPerClick)}</td>
+                  <td>{number(r.results)}</td>
+                  <td>{money(r.costPerResult)}</td>
                   <td>{number(r.leads)}</td>
                   <td>{money(r.costPerLead)}</td>
                   <td>{number(r.closed)}</td>

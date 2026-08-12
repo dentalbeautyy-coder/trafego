@@ -72,8 +72,13 @@ CREATE TABLE IF NOT EXISTS campaign_insights_daily (
   cpm NUMERIC(10,4),
   ctr NUMERIC(6,4),
   frequency NUMERIC(6,4),
+  results BIGINT DEFAULT 0, -- "Resultados" da Meta: conversas iniciadas por mensagem, extraído de actions
   synced_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Coluna adicionada depois da criação inicial da tabela — ALTER separado para
+-- funcionar em bancos que já tinham a tabela sem essa coluna.
+ALTER TABLE campaign_insights_daily ADD COLUMN IF NOT EXISTS results BIGINT DEFAULT 0;
 
 -- IMPORTANTE: NULL nunca é igual a NULL para efeito de UNIQUE no Postgres — uma
 -- constraint UNIQUE(campaign_id, adset_id, ad_id, date) direta NÃO evita duplicidade
