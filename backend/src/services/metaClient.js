@@ -44,25 +44,32 @@ async function getAllPages(path, params) {
 // (aqui, ~80) estouram o rate limit da Meta em segundos se cada campanha
 // disparar suas próprias chamadas de conjuntos/anúncios/insights.
 
+// Só campanhas ATIVAS ou PAUSADAS — ignora o arquivo histórico (campanhas
+// arquivadas/excluídas/concluídas de anos atrás), que não precisa ser
+// sincronizado. Inclui PAUSED (não só ACTIVE) para capturar a transição
+// quando uma campanha ativa hoje for pausada depois.
 export async function fetchCampaigns(adAccountId) {
   return getAllPages(`/${adAccountId}/campaigns`, {
     fields: "id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time",
+    filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] }]),
     limit: 200,
   });
 }
 
-// Conjuntos de TODA a conta, cada um já trazendo o campaign_id a que pertence.
+// Conjuntos de campanhas ativas/pausadas, cada um já trazendo o campaign_id a que pertence.
 export async function fetchAllAdSets(adAccountId) {
   return getAllPages(`/${adAccountId}/adsets`, {
     fields: "id,name,status,daily_budget,created_time,campaign_id",
+    filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] }]),
     limit: 200,
   });
 }
 
-// Anúncios de TODA a conta, cada um já trazendo o adset_id a que pertence.
+// Anúncios de campanhas ativas/pausadas, cada um já trazendo o adset_id a que pertence.
 export async function fetchAllAds(adAccountId) {
   return getAllPages(`/${adAccountId}/ads`, {
     fields: "id,name,status,created_time,adset_id,creative{thumbnail_url}",
+    filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] }]),
     limit: 200,
   });
 }
