@@ -148,6 +148,8 @@ function CampaignRow({ campaign, expanded, onToggle }) {
 function CampaignAdsPanel({ campaignId }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
+  const [adsetFilter, setAdsetFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
 
   useEffect(() => {
     api
@@ -156,12 +158,61 @@ function CampaignAdsPanel({ campaignId }) {
       .catch((err) => setError(err.message));
   }, [campaignId]);
 
+  const adsetOptions = useMemo(() => {
+    if (!detail) return [];
+    return Array.from(new Set(detail.ads.map((ad) => ad.adset_name))).sort();
+  }, [detail]);
+
+  const filteredAds = useMemo(() => {
+    if (!detail) return [];
+    return detail.ads.filter((ad) => {
+      const matchesAdset = !adsetFilter || ad.adset_name === adsetFilter;
+      const matchesName = !nameFilter || ad.name.toLowerCase().includes(nameFilter.toLowerCase());
+      return matchesAdset && matchesName;
+    });
+  }, [detail, adsetFilter, nameFilter]);
+
   if (error) return <div className="error-banner" style={{ margin: 16 }}>{error}</div>;
   if (!detail) return <div className="empty">Carregando anúncios…</div>;
   if (!detail.ads.length) return <div className="empty">Essa campanha ainda não tem anúncios sincronizados.</div>;
 
   return (
     <div style={{ background: "var(--bg)", padding: 16 }}>
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <div className="field">
+          <label htmlFor={`adset-filter-${campaignId}`}>Conjunto</label>
+          <select id={`adset-filter-${campaignId}`} value={adsetFilter} onChange={(e) => setAdsetFilter(e.target.value)}>
+            <option value="">Todos os conjuntos</option>
+            {adsetOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`name-filter-${campaignId}`}>Buscar anúncio</label>
+          <input
+            id={`name-filter-${campaignId}`}
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            placeholder="Nome do anúncio"
+            style={{ minWidth: 220 }}
+          />
+        </div>
+        {(adsetFilter || nameFilter) && (
+          <button
+            className="secondary"
+            onClick={() => {
+              setAdsetFilter("");
+              setNameFilter("");
+            }}
+          >
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       <div className="table-scroll">
         <table>
           <thead>
@@ -178,11 +229,12 @@ function CampaignAdsPanel({ campaignId }) {
             </tr>
           </thead>
           <tbody>
-            {detail.ads.map((ad) => (
+            {filteredAds.map((ad) => (
               <AdFunnelRow key={ad.id} ad={ad} />
             ))}
           </tbody>
         </table>
+        {!filteredAds.length && <div className="empty">Nenhum anúncio corresponde ao filtro.</div>}
       </div>
     </div>
   );
