@@ -1,10 +1,12 @@
 import { pool } from "../config/db.js";
-import { fetchCampaigns, fetchAdSets, fetchAds, fetchCampaignInsightsDaily } from "./metaClient.js";
+import { fetchCampaigns, fetchAllAdSets, fetchAllAds, fetchAllInsightsDaily } from "./metaClient.js";
 import "dotenv/config";
 
 // Sincroniza campanhas/conjuntos/anúncios/insights da conta configurada.
 // Idempotente: upsert por chave única (meta_*_id, ou campaign+adset+ad+date para insights).
-// Retorna um resumo usado para preencher sync_logs.
+// Busca cada tipo de dado para a CONTA INTEIRA em poucas chamadas paginadas —
+// nunca uma chamada por campanha, para não estourar o rate limit da Meta em
+// contas com muitas campanhas.
 export async function runSync({ triggeredBy, daysBack = 7 }) {
   const logRes = await pool.query(
     `INSERT INTO sync_logs (triggered_by, status) VALUES ($1, 'running') RETURNING id`,
@@ -12,58 +14,69 @@ export async function runSync({ triggeredBy, daysBack = 7 }) {
   );
   const logId = logRes.rows[0].id;
 
-  let campaignsSynced = 0;
   let recordsInserted = 0;
   let recordsSkippedDuplicate = 0;
-  const campaignErrors = [];
 
   try {
     const adAccountId = process.env.META_AD_ACCOUNT_ID;
+
+    // 1) Campanhas — upsert todas, guarda mapa meta_campaign_id -> id interno
     const metaCampaigns = await fetchCampaigns(adAccountId);
-
+    const campaignIdMap = new Map(); // meta_campaign_id -> id interno
     for (const mc of metaCampaigns) {
-      try {
-        const campaignRow = await upsertCampaign(mc);
-
-        const adsets = await fetchAdSets(mc.id);
-        for (const as of adsets) {
-          const adsetRow = await upsertAdset(as, campaignRow.id);
-          const ads = await fetchAds(as.id);
-          for (const ad of ads) {
-            await upsertAd(ad, adsetRow.id);
-          }
-        }
-
-        const insights = await fetchCampaignInsightsDaily(mc.id, daysBack);
-        for (const insight of insights) {
-          const result = await upsertInsight(campaignRow.id, insight);
-          if (result === "inserted") recordsInserted++;
-          else recordsSkippedDuplicate++;
-        }
-
-        campaignsSynced++;
-      } catch (campaignErr) {
-        // Uma campanha com problema (ex: sem permissão, deletada) não deve derrubar as outras.
-        campaignErrors.push(`${mc.name || mc.id}: ${campaignErr.message}`);
-      }
+      const row = await upsertCampaign(mc);
+      campaignIdMap.set(mc.id, row.id);
     }
 
-    const status = campaignErrors.length === 0 ? "success" : "partial";
+    // 2) Conjuntos — uma chamada para a conta toda
+    const metaAdSets = await fetchAllAdSets(adAccountId);
+    const adsetIdMap = new Map(); // meta_adset_id -> id interno
+    for (const as of metaAdSets) {
+      const campaignId = campaignIdMap.get(as.campaign_id);
+      if (!campaignId) continue; // conjunto de campanha fora do escopo sincronizado
+      const row = await upsertAdset(as, campaignId);
+      adsetIdMap.set(as.id, row.id);
+    }
+
+    // 3) Anúncios — uma chamada para a conta toda
+    const metaAds = await fetchAllAds(adAccountId);
+    for (const ad of metaAds) {
+      const adsetId = adsetIdMap.get(ad.adset_id);
+      if (!adsetId) continue;
+      await upsertAd(ad, adsetId);
+    }
+
+    // 4) Insights diários — uma série de chamadas paginadas para a conta toda
+    const insights = await fetchAllInsightsDaily(adAccountId, daysBack);
+    for (const insight of insights) {
+      const campaignId = campaignIdMap.get(insight.campaign_id);
+      if (!campaignId) continue;
+      const result = await upsertInsight(campaignId, insight);
+      if (result === "inserted") recordsInserted++;
+      else recordsSkippedDuplicate++;
+    }
+
     await pool.query(
-      `UPDATE sync_logs SET status=$1, finished_at=now(),
-       campaigns_synced=$2, records_inserted=$3, records_skipped_duplicate=$4, error_message=$5
-       WHERE id=$6`,
-      [status, campaignsSynced, recordsInserted, recordsSkippedDuplicate, campaignErrors.join(" | ") || null, logId]
+      `UPDATE sync_logs SET status='success', finished_at=now(),
+       campaigns_synced=$1, records_inserted=$2, records_skipped_duplicate=$3
+       WHERE id=$4`,
+      [campaignIdMap.size, recordsInserted, recordsSkippedDuplicate, logId]
     );
 
-    return { status, campaignsSynced, recordsInserted, recordsSkippedDuplicate, campaignErrors };
+    return {
+      status: "success",
+      campaignsSynced: campaignIdMap.size,
+      adsetsSynced: adsetIdMap.size,
+      adsSynced: metaAds.length,
+      recordsInserted,
+      recordsSkippedDuplicate,
+    };
   } catch (err) {
-    // Erro fora do loop por campanha (ex: fetchCampaigns falhou — token inválido, conta errada)
     await pool.query(
       `UPDATE sync_logs SET status='failed', finished_at=now(), error_message=$1,
-       campaigns_synced=$2, records_inserted=$3, records_skipped_duplicate=$4
-       WHERE id=$5`,
-      [String(err.message || err), campaignsSynced, recordsInserted, recordsSkippedDuplicate, logId]
+       records_inserted=$2, records_skipped_duplicate=$3
+       WHERE id=$4`,
+      [String(err.message || err), recordsInserted, recordsSkippedDuplicate, logId]
     );
     throw err;
   }

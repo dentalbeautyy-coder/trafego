@@ -39,39 +39,47 @@ async function getAllPages(path, params) {
   return results;
 }
 
+// Todas as funções abaixo buscam para a CONTA INTEIRA de uma vez (paginado),
+// em vez de uma chamada por campanha/conjunto — contas com muitas campanhas
+// (aqui, ~80) estouram o rate limit da Meta em segundos se cada campanha
+// disparar suas próprias chamadas de conjuntos/anúncios/insights.
+
 export async function fetchCampaigns(adAccountId) {
   return getAllPages(`/${adAccountId}/campaigns`, {
     fields: "id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time",
-    limit: 100,
+    limit: 200,
   });
 }
 
-export async function fetchAdSets(campaignId) {
-  return getAllPages(`/${campaignId}/adsets`, {
-    fields: "id,name,status,daily_budget,created_time",
-    limit: 100,
+// Conjuntos de TODA a conta, cada um já trazendo o campaign_id a que pertence.
+export async function fetchAllAdSets(adAccountId) {
+  return getAllPages(`/${adAccountId}/adsets`, {
+    fields: "id,name,status,daily_budget,created_time,campaign_id",
+    limit: 200,
   });
 }
 
-export async function fetchAds(adsetId) {
-  return getAllPages(`/${adsetId}/ads`, {
-    fields: "id,name,status,created_time,creative{thumbnail_url}",
-    limit: 100,
+// Anúncios de TODA a conta, cada um já trazendo o adset_id a que pertence.
+export async function fetchAllAds(adAccountId) {
+  return getAllPages(`/${adAccountId}/ads`, {
+    fields: "id,name,status,created_time,adset_id,creative{thumbnail_url}",
+    limit: 200,
   });
 }
 
-// Insights diários no nível de campanha, últimos `daysBack` dias (padrão 7 —
-// cobre revisões tardias de métricas que a Meta às vezes faz no próprio dia/dia seguinte).
-export async function fetchCampaignInsightsDaily(campaignId, daysBack = 7) {
-  return getAllPages(`/${campaignId}/insights`, {
-    fields: "spend,impressions,reach,clicks,cpc,cpm,ctr,frequency,date_start,date_stop",
+// Insights diários por campanha, para TODA a conta em uma única série de chamadas
+// paginadas (level=campaign, breakdown por dia). daysBack padrão 7 — cobre revisões
+// tardias de métricas que a Meta às vezes faz no próprio dia/dia seguinte.
+export async function fetchAllInsightsDaily(adAccountId, daysBack = 7) {
+  return getAllPages(`/${adAccountId}/insights`, {
+    level: "campaign",
+    fields: "campaign_id,spend,impressions,reach,clicks,cpc,cpm,ctr,frequency,date_start,date_stop",
     time_increment: 1,
-    date_preset: undefined,
     time_range: JSON.stringify({
       since: daysAgo(daysBack),
       until: daysAgo(0),
     }),
-    limit: 100,
+    limit: 200,
   });
 }
 
