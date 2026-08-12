@@ -1,21 +1,8 @@
 import { Router } from "express";
 import { pool } from "../config/db.js";
 import { runSync } from "../services/sync.js";
-import { fetchAllInsightsDaily } from "../services/metaClient.js";
 
 export const syncRouter = Router();
-
-// Diagnóstico temporário — ver os action_type reais que a Meta devolve, pra achar
-// o nome certo de "conversas iniciadas". Remover depois.
-syncRouter.get("/debug-actions", async (req, res) => {
-  try {
-    const insights = await fetchAllInsightsDaily(process.env.META_AD_ACCOUNT_ID, 3);
-    const withActions = insights.find((i) => Array.isArray(i.actions) && i.actions.length > 0);
-    res.json({ sample: withActions || null, totalInsights: insights.length });
-  } catch (err) {
-    res.status(502).json({ error: err.message });
-  }
-});
 
 // daysBack opcional via query string (?daysBack=30) — útil para um backfill pontual
 // além dos 7 dias padrão do dia a dia.
