@@ -71,11 +71,15 @@ export async function runSync({ triggeredBy, daysBack = 7 }) {
     // anúncio individual no painel da campanha (não entram no cálculo da Visão Geral,
     // que já soma pelo nível de campanha, para não contar o investimento em dobro).
     const adInsights = await fetchAllAdInsightsDaily(adAccountId, daysBack);
+    let adInsightsUnmatched = 0;
     for (const insight of adInsights) {
       const campaignId = campaignIdMap.get(insight.campaign_id);
       const adsetId = adsetIdMap.get(insight.adset_id);
       const adId = adIdMap.get(insight.ad_id);
-      if (!campaignId || !adsetId || !adId) continue;
+      if (!campaignId || !adsetId || !adId) {
+        adInsightsUnmatched++;
+        continue;
+      }
       const result = await upsertInsight({ campaignId, adsetId, adId }, insight);
       if (result === "inserted") recordsInserted++;
       else recordsSkippedDuplicate++;
@@ -93,6 +97,8 @@ export async function runSync({ triggeredBy, daysBack = 7 }) {
       campaignsSynced: campaignIdMap.size,
       adsetsSynced: adsetIdMap.size,
       adsSynced: metaAds.length,
+      adInsightsFetched: adInsights.length,
+      adInsightsUnmatched,
       recordsInserted,
       recordsSkippedDuplicate,
     };
