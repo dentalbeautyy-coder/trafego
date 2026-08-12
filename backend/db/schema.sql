@@ -5,7 +5,7 @@
 -- Tabelas alimentadas pela Meta (somente leitura para o usuário)
 -- ============================================================
 
-CREATE TABLE meta_ad_accounts (
+CREATE TABLE IF NOT EXISTS meta_ad_accounts (
   id SERIAL PRIMARY KEY,
   meta_account_id TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE meta_ad_accounts (
 );
 
 -- Campanhas: mistura linhas vindas da Meta com linhas criadas manualmente
-CREATE TABLE campaigns (
+CREATE TABLE IF NOT EXISTS campaigns (
   id SERIAL PRIMARY KEY,
   source TEXT NOT NULL CHECK (source IN ('meta', 'manual')),
   meta_campaign_id TEXT UNIQUE, -- só preenchido se source = 'meta'
@@ -34,7 +34,7 @@ CREATE TABLE campaigns (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE adsets (
+CREATE TABLE IF NOT EXISTS adsets (
   id SERIAL PRIMARY KEY,
   meta_adset_id TEXT UNIQUE,
   campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -46,7 +46,7 @@ CREATE TABLE adsets (
   last_synced_at TIMESTAMPTZ
 );
 
-CREATE TABLE ads (
+CREATE TABLE IF NOT EXISTS ads (
   id SERIAL PRIMARY KEY,
   meta_ad_id TEXT UNIQUE,
   adset_id INTEGER NOT NULL REFERENCES adsets(id) ON DELETE CASCADE,
@@ -58,7 +58,7 @@ CREATE TABLE ads (
 );
 
 -- Métricas diárias — granularidade fina, nunca sobrescrita às cegas (upsert por chave única)
-CREATE TABLE campaign_insights_daily (
+CREATE TABLE IF NOT EXISTS campaign_insights_daily (
   id SERIAL PRIMARY KEY,
   campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
   adset_id INTEGER REFERENCES adsets(id) ON DELETE CASCADE,
@@ -77,7 +77,7 @@ CREATE TABLE campaign_insights_daily (
 );
 
 -- Leads nativos da Meta (Lead Ads) — só populada se o Caminho A estiver em uso
-CREATE TABLE meta_leads (
+CREATE TABLE IF NOT EXISTS meta_leads (
   id SERIAL PRIMARY KEY,
   meta_leadgen_id TEXT NOT NULL UNIQUE,
   campaign_id INTEGER REFERENCES campaigns(id),
@@ -95,7 +95,7 @@ CREATE TABLE meta_leads (
 -- Tabelas de preenchimento manual — o funil de verdade
 -- ============================================================
 
-CREATE TABLE patient_leads (
+CREATE TABLE IF NOT EXISTS patient_leads (
   id SERIAL PRIMARY KEY,
   campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
   meta_lead_id INTEGER REFERENCES meta_leads(id),
@@ -118,7 +118,7 @@ CREATE TABLE patient_leads (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE manual_daily_spend (
+CREATE TABLE IF NOT EXISTS manual_daily_spend (
   id SERIAL PRIMARY KEY,
   campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
   date DATE NOT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE manual_daily_spend (
   UNIQUE (campaign_id, date)
 );
 
-CREATE TABLE sync_logs (
+CREATE TABLE IF NOT EXISTS sync_logs (
   id SERIAL PRIMARY KEY,
   triggered_by TEXT NOT NULL CHECK (triggered_by IN ('manual_button', 'cron_08h')),
   started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -141,7 +141,7 @@ CREATE TABLE sync_logs (
 );
 
 -- Índices de apoio para os filtros do dashboard (período + campanha)
-CREATE INDEX idx_insights_date ON campaign_insights_daily(date);
-CREATE INDEX idx_insights_campaign ON campaign_insights_daily(campaign_id);
-CREATE INDEX idx_patient_leads_campaign ON patient_leads(campaign_id);
-CREATE INDEX idx_patient_leads_received ON patient_leads(received_at);
+CREATE INDEX IF NOT EXISTS idx_insights_date ON campaign_insights_daily(date);
+CREATE INDEX IF NOT EXISTS idx_insights_campaign ON campaign_insights_daily(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_patient_leads_campaign ON patient_leads(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_patient_leads_received ON patient_leads(received_at);
