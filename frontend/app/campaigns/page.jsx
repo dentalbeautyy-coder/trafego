@@ -139,14 +139,14 @@ function CampaignRow({ campaign, expanded, onToggle }) {
     return detail.ads.reduce(
       (acc, ad) => {
         acc.spend += Number(ad.spend) || 0;
-        acc.clicks += Number(ad.clicks) || 0;
+        acc.results += Number(ad.results) || 0;
         acc.leadsArrived += Number(ad.leads_arrived) || 0;
         acc.scheduled += Number(ad.scheduled_count) || 0;
         acc.closed += Number(ad.closed_count) || 0;
         acc.revenue += Number(ad.sale_value_total) || 0;
         return acc;
       },
-      { spend: 0, clicks: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
+      { spend: 0, results: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
     );
   }, [detail]);
 
@@ -173,8 +173,8 @@ function CampaignRow({ campaign, expanded, onToggle }) {
             {campaignTotal && (
               <div className="card card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", fontSize: 13 }}>
                 <SubtotalItem label="Gasto total (Meta)" value={money(campaignTotal.spend)} />
-                <SubtotalItem label="Cliques (Meta)" value={number(campaignTotal.clicks)} />
-                <SubtotalItem label="Custo/clique" value={money(campaignTotal.clicks > 0 ? campaignTotal.spend / campaignTotal.clicks : null)} />
+                <SubtotalItem label="Conversas iniciadas (Meta)" value={number(campaignTotal.results)} />
+                <SubtotalItem label="Custo/conversa" value={money(campaignTotal.results > 0 ? campaignTotal.spend / campaignTotal.results : null)} />
                 <SubtotalItem label="Custo/lead real" value={money(campaignTotal.leadsArrived > 0 ? campaignTotal.spend / campaignTotal.leadsArrived : null)} />
                 <SubtotalItem label="Chegaram" value={number(campaignTotal.leadsArrived)} />
                 <SubtotalItem label="Agendamentos" value={number(campaignTotal.scheduled)} />
@@ -284,18 +284,18 @@ function AdsetGroup({ group }) {
     return group.ads.reduce(
       (acc, ad) => {
         acc.spend += Number(ad.spend) || 0;
-        acc.clicks += Number(ad.clicks) || 0;
+        acc.results += Number(ad.results) || 0;
         acc.leadsArrived += Number(ad.leads_arrived) || 0;
         acc.scheduled += Number(ad.scheduled_count) || 0;
         acc.closed += Number(ad.closed_count) || 0;
         acc.revenue += Number(ad.sale_value_total) || 0;
         return acc;
       },
-      { spend: 0, clicks: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
+      { spend: 0, results: 0, leadsArrived: 0, scheduled: 0, closed: 0, revenue: 0 }
     );
   }, [group.ads]);
 
-  const costPerClick = subtotal.clicks > 0 ? subtotal.spend / subtotal.clicks : null;
+  const costPerResult = subtotal.results > 0 ? subtotal.spend / subtotal.results : null;
   const costPerRealLead = subtotal.leadsArrived > 0 ? subtotal.spend / subtotal.leadsArrived : null;
 
   return (
@@ -313,8 +313,8 @@ function AdsetGroup({ group }) {
 
       <div className="card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px 24px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <SubtotalItem label="Gasto (Meta)" value={money(subtotal.spend)} />
-        <SubtotalItem label="Cliques (Meta)" value={number(subtotal.clicks)} />
-        <SubtotalItem label="Custo/clique" value={money(costPerClick)} />
+        <SubtotalItem label="Conversas iniciadas (Meta)" value={number(subtotal.results)} />
+        <SubtotalItem label="Custo/conversa" value={money(costPerResult)} />
         <SubtotalItem label="Custo/lead real" value={money(costPerRealLead)} />
         <SubtotalItem label="Chegaram" value={number(subtotal.leadsArrived)} />
         <SubtotalItem label="Agendamentos" value={number(subtotal.scheduled)} />
@@ -329,7 +329,7 @@ function AdsetGroup({ group }) {
               <tr>
                 <th>Anúncio</th>
                 <th>Gasto (Meta)</th>
-                <th>Cliques (Meta)</th>
+                <th>Conversas (Meta)</th>
                 <th>Chegaram de fato</th>
                 <th>Agendamentos</th>
                 <th>Fechamentos</th>
@@ -390,7 +390,7 @@ function AdFunnelRow({ ad }) {
     <tr>
       <td>{ad.name}</td>
       <td className="muted">{money(ad.spend)}</td>
-      <td className="muted">{number(ad.clicks)}</td>
+      <td className="muted">{number(ad.results)}</td>
       <td>
         <CountInput value={values.leads_arrived} onSave={(v) => save("leads_arrived", v)} disabled={saving} />
       </td>

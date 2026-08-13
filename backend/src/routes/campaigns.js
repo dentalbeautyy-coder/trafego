@@ -71,6 +71,7 @@ campaignsRouter.get("/:id/detail", async (req, res) => {
        ase.id AS adset_id, ase.name AS adset_name, ase.daily_budget AS adset_daily_budget,
        COALESCE(spend.total_spend, 0) AS spend,
        COALESCE(spend.total_clicks, 0) AS clicks,
+       COALESCE(spend.total_results, 0) AS results,
        COALESCE(spend.total_impressions, 0) AS impressions,
        COALESCE(f.leads_arrived, 0) AS leads_arrived,
        COALESCE(f.scheduled_count, 0) AS scheduled_count,
@@ -83,7 +84,7 @@ campaignsRouter.get("/:id/detail", async (req, res) => {
      LEFT JOIN (
        -- soma todo o período já sincronizado (não só o período do filtro da Visão
        -- Geral) — representa "quanto esse anúncio já gastou/gerou de cliques até agora".
-       SELECT ad_id, SUM(spend) AS total_spend, SUM(clicks) AS total_clicks, SUM(impressions) AS total_impressions
+       SELECT ad_id, SUM(spend) AS total_spend, SUM(clicks) AS total_clicks, SUM(results) AS total_results, SUM(impressions) AS total_impressions
        FROM campaign_insights_daily
        WHERE ad_id IS NOT NULL
        GROUP BY ad_id
