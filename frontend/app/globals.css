@@ -276,6 +276,12 @@ nav.tabs a[data-active="true"] {
   color: var(--text-muted);
 }
 
+/* Toolbars que ficam direto sobre o fundo verde da página (sem card por
+   baixo) — rótulo precisa da cor clara, senão some no verde. */
+.toolbar-on-bg .field label {
+  color: var(--text-on-bg-muted);
+}
+
 input, select, textarea {
   font: inherit;
   color: var(--text);

@@ -88,7 +88,7 @@ export default function OverviewPage() {
         <p>Investimento e conversas iniciadas vêm da Meta automaticamente ("Resultados" no Gerenciador de Anúncios). Custo por lead usa quem chegou de fato no CRM — mais confiável que qualquer métrica só da Meta. Agendamentos, fechamentos e valor vendido são contadores acumulados, preenchidos por anúncio (aba Campanhas).</p>
       </div>
 
-      <div className="toolbar">
+      <div className="toolbar toolbar-on-bg">
         <div className="field">
           <label htmlFor="from">De</label>
           <input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
