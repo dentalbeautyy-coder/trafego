@@ -18,6 +18,7 @@ export default function KommoPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [selectedResponsible, setSelectedResponsible] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
+  const [missingFields, setMissingFields] = useState([]);
 
   useEffect(() => {
     load();
@@ -38,14 +39,16 @@ export default function KommoPage() {
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, matrixData, campaignsData] = await Promise.all([
+      const [overviewData, matrixData, campaignsData, missingData] = await Promise.all([
         api.getKommoOverview(from, to),
         api.getKommoMatrix(from, to),
         api.getKommoCampaigns(from, to),
+        api.getKommoMissingFields(from, to),
       ]);
       setOverview(overviewData);
       setMatrix(matrixData);
       setCampaigns(campaignsData);
+      setMissingFields(missingData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,6 +70,24 @@ export default function KommoPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  function exportMissingFieldsCsv() {
+    const header = "Lead,Criado em,Campos faltando,Link na Kommo";
+    const lines = missingFields.map((m) => {
+      const created = m.createdAt ? new Date(m.createdAt).toLocaleString("pt-BR") : "";
+      const fields = m.missingFields.join(" | ");
+      const cells = [m.name || `Lead #${m.id}`, created, fields, m.kommoUrl || ""];
+      return cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = [header, ...lines].join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kommo-pendencias-${from}-a-${to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function toggleCampaign(name) {
@@ -231,6 +252,57 @@ export default function KommoPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-pad" style={{ paddingBottom: 0, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div className="section-title" style={{ margin: 0 }}>
+            Pendências de preenchimento ({missingFields.length})
+          </div>
+          {missingFields.length > 0 && (
+            <button className="secondary" onClick={exportMissingFieldsCsv}>
+              Exportar CSV
+            </button>
+          )}
+        </div>
+        <div className="card-pad" style={{ paddingTop: 12, paddingBottom: missingFields.length ? 0 : 20 }}>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Leads que chegaram no período mas estão sem responsável, status ou campanha preenchidos na Kommo — envie essa lista pra equipe completar.
+          </p>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Lead</th>
+                <th>Criado em</th>
+                <th>Campos faltando</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {missingFields.map((m) => (
+                <tr key={m.id}>
+                  <td>{m.name || `Lead #${m.id}`}</td>
+                  <td className="muted">{m.createdAt ? new Date(m.createdAt).toLocaleDateString("pt-BR") : "—"}</td>
+                  <td>
+                    {m.missingFields.map((f) => (
+                      <span key={f} className="pill partial" style={{ marginRight: 4 }}>{f}</span>
+                    ))}
+                  </td>
+                  <td>
+                    {m.kommoUrl && (
+                      <a href={m.kommoUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent-strong)", fontWeight: 600, fontSize: 13 }}>
+                        Abrir na Kommo →
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!loading && missingFields.length === 0 && <div className="empty">Nenhuma pendência — tudo preenchido no período.</div>}
         </div>
       </div>
 

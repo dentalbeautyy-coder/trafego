@@ -26,7 +26,7 @@ kommoRouter.get("/overview", async (req, res) => {
 
   const { rows: byResponsible } = await pool.query(
     `SELECT
-       COALESCE(l.responsible_label, u.name, 'Sem responsável') AS responsible,
+       COALESCE(l.responsible_label, u.name, 'Sem preenchimento') AS responsible,
        COUNT(*) AS lead_count
      FROM kommo_leads l
      LEFT JOIN kommo_users u ON u.id = l.responsible_user_id
@@ -38,7 +38,7 @@ kommoRouter.get("/overview", async (req, res) => {
 
   const { rows: byStatus } = await pool.query(
     `SELECT
-       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
+       COALESCE(l.negotiation_status_label, 'Sem preenchimento') AS status,
        COUNT(*) AS lead_count
      FROM kommo_leads l
      LEFT JOIN kommo_statuses s ON s.id = l.status_id
@@ -68,8 +68,8 @@ kommoRouter.get("/matrix", async (req, res) => {
 
   const { rows } = await pool.query(
     `SELECT
-       COALESCE(l.responsible_label, u.name, 'Sem responsável') AS responsible,
-       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
+       COALESCE(l.responsible_label, u.name, 'Sem preenchimento') AS responsible,
+       COALESCE(l.negotiation_status_label, 'Sem preenchimento') AS status,
        COUNT(*) AS lead_count
      FROM kommo_leads l
      LEFT JOIN kommo_users u ON u.id = l.responsible_user_id
@@ -82,6 +82,50 @@ kommoRouter.get("/matrix", async (req, res) => {
   res.json(rows.map((r) => ({ responsible: r.responsible, status: r.status, count: Number(r.lead_count) })));
 });
 
+// Pendências: leads com responsável, status ou campanha sem preenchimento —
+// pra equipe saber exatamente o que falta completar na Kommo.
+kommoRouter.get("/missing-fields", async (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: "parâmetros from e to (YYYY-MM-DD) são obrigatórios" });
+
+  const subdomain = process.env.KOMMO_SUBDOMAIN;
+  const { rows } = await pool.query(
+    `SELECT
+       l.id,
+       l.name,
+       l.kommo_created_at,
+       COALESCE(l.responsible_label, u.name) AS responsible,
+       l.negotiation_status_label AS status,
+       l.campaign_label AS campaign
+     FROM kommo_leads l
+     LEFT JOIN kommo_users u ON u.id = l.responsible_user_id
+     WHERE l.kommo_created_at::date BETWEEN $1 AND $2
+       AND (
+         COALESCE(l.responsible_label, u.name) IS NULL
+         OR l.negotiation_status_label IS NULL
+         OR l.campaign_label IS NULL
+       )
+     ORDER BY l.kommo_created_at DESC`,
+    [from, to]
+  );
+
+  const missing = rows.map((r) => {
+    const missingFields = [];
+    if (!r.responsible) missingFields.push("Responsável");
+    if (!r.status) missingFields.push("Status Negociação");
+    if (!r.campaign) missingFields.push("Campanhas/Parceiros");
+    return {
+      id: r.id,
+      name: r.name,
+      createdAt: r.kommo_created_at,
+      missingFields,
+      kommoUrl: subdomain ? `https://${subdomain}.kommo.com/leads/detail/${r.id}` : null,
+    };
+  });
+
+  res.json(missing);
+});
+
 // Por campanha: quantidade de leads, e dentro de cada campanha a quebra por
 // responsável e por status — para responder "quem atendeu o que veio de cada anúncio".
 kommoRouter.get("/campaigns", async (req, res) => {
@@ -90,9 +134,9 @@ kommoRouter.get("/campaigns", async (req, res) => {
 
   const { rows: leads } = await pool.query(
     `SELECT
-       COALESCE(l.campaign_label, 'Sem campanha identificada') AS campaign_label,
-       COALESCE(l.responsible_label, u.name, 'Sem responsável') AS responsible,
-       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
+       COALESCE(l.campaign_label, 'Sem preenchimento') AS campaign_label,
+       COALESCE(l.responsible_label, u.name, 'Sem preenchimento') AS responsible,
+       COALESCE(l.negotiation_status_label, 'Sem preenchimento') AS status,
        l.id
      FROM kommo_leads l
      LEFT JOIN kommo_users u ON u.id = l.responsible_user_id
