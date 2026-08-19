@@ -132,7 +132,7 @@ export default function KommoPage() {
             {syncing ? "Sincronizando…" : "Sincronizar com a Kommo"}
           </button>
           {lastSyncedAt && (
-            <span className="muted" style={{ fontSize: 12.5 }}>
+            <span style={{ fontSize: 12.5, color: "var(--text-on-bg-muted)" }}>
               atualizado {timeAgo(lastSyncedAt)}
             </span>
           )}
@@ -154,7 +154,7 @@ export default function KommoPage() {
         </div>
       </div>
 
-      <div className="toolbar">
+      <div className="toolbar toolbar-on-bg">
         <div className="field">
           <label htmlFor="filter-responsible">Filtrar por atendente</label>
           <select id="filter-responsible" value={selectedResponsible} onChange={(e) => setSelectedResponsible(e.target.value)}>

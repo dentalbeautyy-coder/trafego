@@ -7,7 +7,10 @@ const RESPONSIBLE_FIELD_NAME = "Responsável"; // campo customizado multiselect,
 // A etapa do funil (status_id) quase sempre fica "SUPERVISÃO" pra todo mundo — pouco
 // útil como "status do atendimento". O campo customizado "Status Negociação" tem os
 // valores reais (Agendado, Em conversa, Mensagem inicial, Sem acordo etc.).
-const NEGOTIATION_STATUS_FIELD_NAME = "Status Negociação";
+// Casa por field_id (1110460), não por nome — o nome com "ç"/"ã" vinha em uma forma
+// de acentuação Unicode diferente da usada aqui no código-fonte, então a comparação
+// por string nunca batia (campanha e responsável funcionavam por coincidência).
+const NEGOTIATION_STATUS_FIELD_ID = 1110460;
 
 export async function runKommoSync({ daysBack = 60 } = {}) {
   const toTs = Math.floor(Date.now() / 1000);
@@ -46,7 +49,7 @@ export async function runKommoSync({ daysBack = 60 } = {}) {
     const campaignLabel = extractFieldValue(fields, CAMPAIGN_FIELD_NAME);
     const channelLabel = extractFieldValue(fields, CHANNEL_FIELD_NAME);
     const responsibleLabel = extractFieldValue(fields, RESPONSIBLE_FIELD_NAME);
-    const negotiationStatusLabel = extractFieldValue(fields, NEGOTIATION_STATUS_FIELD_NAME);
+    const negotiationStatusLabel = extractFieldById(fields, NEGOTIATION_STATUS_FIELD_ID);
 
     const res = await pool.query(
       `INSERT INTO kommo_leads
@@ -92,7 +95,18 @@ export async function runKommoSync({ daysBack = 60 } = {}) {
 }
 
 function extractFieldValue(customFieldsValues, fieldName) {
-  const field = customFieldsValues.find((f) => f.field_name === fieldName && f.values?.length);
+  // Normaliza (NFC) e ignora espaços nas pontas — nomes de campo com acento vindos
+  // da API às vezes chegam numa forma Unicode diferente da usada no código-fonte.
+  const target = fieldName.normalize("NFC").trim();
+  const field = customFieldsValues.find(
+    (f) => f.field_name?.normalize("NFC").trim() === target && f.values?.length
+  );
+  if (!field) return null;
+  return field.values.map((v) => v.value).join(", ");
+}
+
+function extractFieldById(customFieldsValues, fieldId) {
+  const field = customFieldsValues.find((f) => f.field_id === fieldId && f.values?.length);
   if (!field) return null;
   return field.values.map((v) => v.value).join(", ");
 }

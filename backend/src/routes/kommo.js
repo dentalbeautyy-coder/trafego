@@ -19,20 +19,6 @@ kommoRouter.get("/last-sync", async (req, res) => {
   res.json({ lastSyncedAt: rows[0].last_synced_at });
 });
 
-// Diagnóstico temporário — conferir se negotiation_status_label está sendo gravado.
-kommoRouter.get("/debug-sample", async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, name, responsible_label, negotiation_status_label, campaign_label, status_id
-     FROM kommo_leads ORDER BY kommo_created_at DESC LIMIT 10`
-  );
-  const { rows: counts } = await pool.query(
-    `SELECT COUNT(*) FILTER (WHERE negotiation_status_label IS NOT NULL) AS with_label,
-            COUNT(*) FILTER (WHERE negotiation_status_label IS NULL) AS without_label
-     FROM kommo_leads`
-  );
-  res.json({ sample: rows, counts: counts[0] });
-});
-
 // Visão geral: total de leads no período, quebrado por responsável e por status.
 kommoRouter.get("/overview", async (req, res) => {
   const { from, to } = req.query;
