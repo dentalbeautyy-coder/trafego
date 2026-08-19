@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchAccount, fetchUsers, fetchPipelines, fetchLeadsCustomFields, fetchLeadsPage } from "../services/kommoClient.js";
+import { fetchAccount, fetchUsers, fetchPipelines, fetchLeadsCustomFields, fetchLeadsPage, fetchRecentLeads } from "../services/kommoClient.js";
 
 export const kommoDebugRouter = Router();
 
@@ -16,6 +16,16 @@ kommoDebugRouter.get("/inspect", async (req, res) => {
       fetchLeadsPage(1, 3).catch((e) => ({ error: e.message })),
     ]);
     res.json({ account, users, pipelines, customFields, sampleLeads: leadsPage });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+kommoDebugRouter.get("/recent-leads", async (req, res) => {
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    const leads = await fetchRecentLeads(limit);
+    res.json(leads);
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

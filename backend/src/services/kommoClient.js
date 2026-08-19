@@ -40,3 +40,8 @@ export async function fetchLeadsCustomFields() {
 export async function fetchLeadsPage(page = 1, limit = 50) {
   return get("/leads", { page, limit, with: "contacts" });
 }
+
+// Leads mais recentes primeiro — útil pra ver como o campo de campanha vem preenchido hoje.
+export async function fetchRecentLeads(limit = 20) {
+  return get("/leads", { page: 1, limit, "order[created_at]": "desc", with: "contacts" });
+}
