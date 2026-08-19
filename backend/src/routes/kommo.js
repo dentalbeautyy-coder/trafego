@@ -14,6 +14,11 @@ kommoRouter.post("/sync", async (req, res) => {
   }
 });
 
+kommoRouter.get("/last-sync", async (req, res) => {
+  const { rows } = await pool.query(`SELECT MAX(synced_at) AS last_synced_at FROM kommo_leads`);
+  res.json({ lastSyncedAt: rows[0].last_synced_at });
+});
+
 // Visão geral: total de leads no período, quebrado por responsável e por status.
 kommoRouter.get("/overview", async (req, res) => {
   const { from, to } = req.query;
@@ -33,14 +38,12 @@ kommoRouter.get("/overview", async (req, res) => {
 
   const { rows: byStatus } = await pool.query(
     `SELECT
-       COALESCE(s.name, 'Sem status') AS status,
-       COALESCE(p.name, '—') AS pipeline,
+       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
        COUNT(*) AS lead_count
      FROM kommo_leads l
      LEFT JOIN kommo_statuses s ON s.id = l.status_id
-     LEFT JOIN kommo_pipelines p ON p.id = l.pipeline_id
      WHERE l.kommo_created_at::date BETWEEN $1 AND $2
-     GROUP BY 1, 2
+     GROUP BY 1
      ORDER BY lead_count DESC`,
     [from, to]
   );
@@ -53,8 +56,30 @@ kommoRouter.get("/overview", async (req, res) => {
   res.json({
     total: Number(totalRows[0].total),
     byResponsible: byResponsible.map((r) => ({ responsible: r.responsible, count: Number(r.lead_count) })),
-    byStatus: byStatus.map((r) => ({ status: r.status, pipeline: r.pipeline, count: Number(r.lead_count) })),
+    byStatus: byStatus.map((r) => ({ status: r.status, count: Number(r.lead_count) })),
   });
+});
+
+// Cruzamento responsável x status — usado pro filtro que se cruza: selecionar um
+// status mostra quem atendeu; selecionar um responsável mostra os status dele.
+kommoRouter.get("/matrix", async (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: "parâmetros from e to (YYYY-MM-DD) são obrigatórios" });
+
+  const { rows } = await pool.query(
+    `SELECT
+       COALESCE(l.responsible_label, u.name, 'Sem responsável') AS responsible,
+       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
+       COUNT(*) AS lead_count
+     FROM kommo_leads l
+     LEFT JOIN kommo_users u ON u.id = l.responsible_user_id
+     LEFT JOIN kommo_statuses s ON s.id = l.status_id
+     WHERE l.kommo_created_at::date BETWEEN $1 AND $2
+     GROUP BY 1, 2`,
+    [from, to]
+  );
+
+  res.json(rows.map((r) => ({ responsible: r.responsible, status: r.status, count: Number(r.lead_count) })));
 });
 
 // Por campanha: quantidade de leads, e dentro de cada campanha a quebra por
@@ -67,7 +92,7 @@ kommoRouter.get("/campaigns", async (req, res) => {
     `SELECT
        COALESCE(l.campaign_label, 'Sem campanha identificada') AS campaign_label,
        COALESCE(l.responsible_label, u.name, 'Sem responsável') AS responsible,
-       COALESCE(s.name, 'Sem status') AS status,
+       COALESCE(l.negotiation_status_label, s.name, 'Sem status') AS status,
        l.id
      FROM kommo_leads l
      LEFT JOIN kommo_users u ON u.id = l.responsible_user_id

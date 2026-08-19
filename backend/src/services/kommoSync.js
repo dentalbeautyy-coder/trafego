@@ -4,6 +4,10 @@ import { fetchUsers, fetchPipelinesWithStatuses, fetchLeadsInRange } from "./kom
 const CAMPAIGN_FIELD_NAME = "Campanhas/Parceiros";
 const CHANNEL_FIELD_NAME = "Canal de Entrada";
 const RESPONSIBLE_FIELD_NAME = "Responsável"; // campo customizado multiselect, existe 2x na conta
+// A etapa do funil (status_id) quase sempre fica "SUPERVISÃO" pra todo mundo — pouco
+// útil como "status do atendimento". O campo customizado "Status Negociação" tem os
+// valores reais (Agendado, Em conversa, Mensagem inicial, Sem acordo etc.).
+const NEGOTIATION_STATUS_FIELD_NAME = "Status Negociação";
 
 export async function runKommoSync({ daysBack = 60 } = {}) {
   const toTs = Math.floor(Date.now() / 1000);
@@ -42,12 +46,13 @@ export async function runKommoSync({ daysBack = 60 } = {}) {
     const campaignLabel = extractFieldValue(fields, CAMPAIGN_FIELD_NAME);
     const channelLabel = extractFieldValue(fields, CHANNEL_FIELD_NAME);
     const responsibleLabel = extractFieldValue(fields, RESPONSIBLE_FIELD_NAME);
+    const negotiationStatusLabel = extractFieldValue(fields, NEGOTIATION_STATUS_FIELD_NAME);
 
     const res = await pool.query(
       `INSERT INTO kommo_leads
          (id, name, responsible_user_id, responsible_label, pipeline_id, status_id,
-          campaign_label, channel_label, kommo_created_at, kommo_updated_at, synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9), to_timestamp($10), now())
+          campaign_label, channel_label, negotiation_status_label, kommo_created_at, kommo_updated_at, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10), to_timestamp($11), now())
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          responsible_user_id = EXCLUDED.responsible_user_id,
@@ -56,6 +61,7 @@ export async function runKommoSync({ daysBack = 60 } = {}) {
          status_id = EXCLUDED.status_id,
          campaign_label = EXCLUDED.campaign_label,
          channel_label = EXCLUDED.channel_label,
+         negotiation_status_label = EXCLUDED.negotiation_status_label,
          kommo_updated_at = EXCLUDED.kommo_updated_at,
          synced_at = now()
        RETURNING (xmax = 0) AS inserted`,
@@ -68,6 +74,7 @@ export async function runKommoSync({ daysBack = 60 } = {}) {
         lead.status_id || null,
         campaignLabel,
         channelLabel,
+        negotiationStatusLabel,
         lead.created_at,
         lead.updated_at,
       ]

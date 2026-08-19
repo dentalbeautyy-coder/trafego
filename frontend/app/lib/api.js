@@ -33,4 +33,6 @@ export const api = {
   runKommoSync: () => request("/api/kommo/sync", { method: "POST" }),
   getKommoOverview: (from, to) => request(`/api/kommo/overview?from=${from}&to=${to}`),
   getKommoCampaigns: (from, to) => request(`/api/kommo/campaigns?from=${from}&to=${to}`),
+  getKommoLastSync: () => request("/api/kommo/last-sync"),
+  getKommoMatrix: (from, to) => request(`/api/kommo/matrix?from=${from}&to=${to}`),
 };

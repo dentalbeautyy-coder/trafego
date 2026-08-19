@@ -205,10 +205,16 @@ CREATE TABLE IF NOT EXISTS kommo_leads (
   status_id BIGINT REFERENCES kommo_statuses(id),
   campaign_label TEXT,   -- campo "Campanhas/Parceiros"
   channel_label TEXT,    -- campo "Canal de Entrada"
+  -- Campo customizado "Status Negociação" (Agendado, Em conversa, Mensagem inicial,
+  -- Sem acordo...) — usado como "status do atendimento" no dashboard, porque a etapa
+  -- do funil (status_id) fica quase sempre em "SUPERVISÃO" e não diz muita coisa.
+  negotiation_status_label TEXT,
   kommo_created_at TIMESTAMPTZ,
   kommo_updated_at TIMESTAMPTZ,
   synced_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE kommo_leads ADD COLUMN IF NOT EXISTS negotiation_status_label TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_kommo_leads_created ON kommo_leads(kommo_created_at);
 CREATE INDEX IF NOT EXISTS idx_kommo_leads_campaign ON kommo_leads(campaign_label);

@@ -2,33 +2,49 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { number, isoDaysAgo } from "../lib/format";
+import { number, isoDaysAgo, timeAgo } from "../lib/format";
 
 export default function KommoPage() {
   const [from, setFrom] = useState(isoDaysAgo(30));
   const [to, setTo] = useState(isoDaysAgo(0));
   const [overview, setOverview] = useState(null);
+  const [matrix, setMatrix] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [expandedCampaigns, setExpandedCampaigns] = useState(new Set());
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [selectedResponsible, setSelectedResponsible] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
 
   useEffect(() => {
     load();
+    loadLastSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
+
+  async function loadLastSync() {
+    try {
+      const data = await api.getKommoLastSync();
+      setLastSyncedAt(data.lastSyncedAt);
+    } catch {
+      // silencioso — não é crítico pra tela funcionar
+    }
+  }
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, campaignsData] = await Promise.all([
+      const [overviewData, matrixData, campaignsData] = await Promise.all([
         api.getKommoOverview(from, to),
+        api.getKommoMatrix(from, to),
         api.getKommoCampaigns(from, to),
       ]);
       setOverview(overviewData);
+      setMatrix(matrixData);
       setCampaigns(campaignsData);
     } catch (err) {
       setError(err.message);
@@ -45,6 +61,7 @@ export default function KommoPage() {
       const result = await api.runKommoSync();
       setSyncResult(result);
       await load();
+      await loadLastSync();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -61,10 +78,35 @@ export default function KommoPage() {
     });
   }
 
+  const responsibleOptions = useMemo(
+    () => Array.from(new Set(matrix.map((m) => m.responsible))).sort(),
+    [matrix]
+  );
+  const statusOptions = useMemo(
+    () => Array.from(new Set(matrix.map((m) => m.status))).sort(),
+    [matrix]
+  );
+
+  // Selecionar um status filtra quem apareceu nesse status; selecionar um
+  // responsável filtra os status dele — os dois painéis se cruzam.
+  const responsibleBreakdown = useMemo(() => {
+    const filtered = matrix.filter((m) => !selectedStatus || m.status === selectedStatus);
+    const totals = new Map();
+    for (const row of filtered) totals.set(row.responsible, (totals.get(row.responsible) || 0) + row.count);
+    return Array.from(totals.entries()).map(([responsible, count]) => ({ responsible, count })).sort((a, b) => b.count - a.count);
+  }, [matrix, selectedStatus]);
+
+  const statusBreakdown = useMemo(() => {
+    const filtered = matrix.filter((m) => !selectedResponsible || m.responsible === selectedResponsible);
+    const totals = new Map();
+    for (const row of filtered) totals.set(row.status, (totals.get(row.status) || 0) + row.count);
+    return Array.from(totals.entries()).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
+  }, [matrix, selectedResponsible]);
+
   const maxResponsibleCount = useMemo(() => {
-    if (!overview?.byResponsible?.length) return 1;
-    return Math.max(...overview.byResponsible.map((r) => r.count));
-  }, [overview]);
+    if (!responsibleBreakdown.length) return 1;
+    return Math.max(...responsibleBreakdown.map((r) => r.count));
+  }, [responsibleBreakdown]);
 
   return (
     <>
@@ -85,9 +127,16 @@ export default function KommoPage() {
         <button className="secondary" onClick={load} disabled={loading}>
           {loading ? "Carregando…" : "Atualizar"}
         </button>
-        <button onClick={handleSync} disabled={syncing}>
-          {syncing ? "Sincronizando…" : "Sincronizar com a Kommo"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={handleSync} disabled={syncing}>
+            {syncing ? "Sincronizando…" : "Sincronizar com a Kommo"}
+          </button>
+          {lastSyncedAt && (
+            <span className="muted" style={{ fontSize: 12.5 }}>
+              atualizado {timeAgo(lastSyncedAt)}
+            </span>
+          )}
+        </div>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -105,14 +154,47 @@ export default function KommoPage() {
         </div>
       </div>
 
+      <div className="toolbar">
+        <div className="field">
+          <label htmlFor="filter-responsible">Filtrar por atendente</label>
+          <select id="filter-responsible" value={selectedResponsible} onChange={(e) => setSelectedResponsible(e.target.value)}>
+            <option value="">Todos os atendentes</option>
+            {responsibleOptions.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="filter-status">Filtrar por status</label>
+          <select id="filter-status" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+            <option value="">Todos os status</option>
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        {(selectedResponsible || selectedStatus) && (
+          <button className="secondary" onClick={() => { setSelectedResponsible(""); setSelectedStatus(""); }}>
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <div className="card card-pad">
-          <div className="section-title">Responsável pelo atendimento</div>
-          {!overview?.byResponsible?.length && <div className="empty">Sem dados no período.</div>}
+          <div className="section-title">
+            Responsável pelo atendimento {selectedStatus && <span className="muted" style={{ fontWeight: 400 }}>— status: {selectedStatus}</span>}
+          </div>
+          {!responsibleBreakdown.length && <div className="empty">Sem dados no período.</div>}
           <div className="funnel">
-            {overview?.byResponsible?.map((r) => (
-              <div className="funnel-row" key={r.responsible}>
-                <div className="funnel-label">{r.responsible}</div>
+            {responsibleBreakdown.map((r) => (
+              <div
+                className="funnel-row"
+                key={r.responsible}
+                style={{ cursor: "pointer" }}
+                onClick={() => setSelectedResponsible(selectedResponsible === r.responsible ? "" : r.responsible)}
+              >
+                <div className="funnel-label" style={{ fontWeight: selectedResponsible === r.responsible ? 800 : 600 }}>{r.responsible}</div>
                 <div className="funnel-track">
                   <div className="funnel-fill" style={{ width: `${Math.min(100, (r.count / maxResponsibleCount) * 100)}%` }} />
                 </div>
@@ -123,22 +205,26 @@ export default function KommoPage() {
         </div>
 
         <div className="card card-pad">
-          <div className="section-title">Status do atendimento</div>
-          {!overview?.byStatus?.length && <div className="empty">Sem dados no período.</div>}
+          <div className="section-title">
+            Status do atendimento {selectedResponsible && <span className="muted" style={{ fontWeight: 400 }}>— atendente: {selectedResponsible}</span>}
+          </div>
+          {!statusBreakdown.length && <div className="empty">Sem dados no período.</div>}
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th>Status</th>
-                  <th>Funil</th>
                   <th>Leads</th>
                 </tr>
               </thead>
               <tbody>
-                {overview?.byStatus?.map((s) => (
-                  <tr key={`${s.pipeline}-${s.status}`}>
+                {statusBreakdown.map((s) => (
+                  <tr
+                    key={s.status}
+                    style={{ cursor: "pointer", fontWeight: selectedStatus === s.status ? 800 : 400 }}
+                    onClick={() => setSelectedStatus(selectedStatus === s.status ? "" : s.status)}
+                  >
                     <td>{s.status}</td>
-                    <td className="muted">{s.pipeline}</td>
                     <td>{number(s.count)}</td>
                   </tr>
                 ))}
