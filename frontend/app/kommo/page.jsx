@@ -256,6 +256,34 @@ export default function KommoPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-pad" style={{ paddingBottom: 0 }}>
+          <div className="section-title">Por campanha</div>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 24 }}></th>
+                <th>Campanha</th>
+                <th>Leads recebidos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaigns.map((c) => (
+                <CampaignRow
+                  key={c.campaign}
+                  campaign={c}
+                  expanded={expandedCampaigns.has(c.campaign)}
+                  onToggle={() => toggleCampaign(c.campaign)}
+                />
+              ))}
+            </tbody>
+          </table>
+          {!loading && campaigns.length === 0 && <div className="empty">Nenhum lead no período selecionado.</div>}
+        </div>
+      </div>
+
+      <div className="card">
         <div className="card-pad" style={{ paddingBottom: 0, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div className="section-title" style={{ margin: 0 }}>
             Pendências de preenchimento ({missingFields.length})
@@ -303,34 +331,6 @@ export default function KommoPage() {
             </tbody>
           </table>
           {!loading && missingFields.length === 0 && <div className="empty">Nenhuma pendência — tudo preenchido no período.</div>}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-pad" style={{ paddingBottom: 0 }}>
-          <div className="section-title">Por campanha</div>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: 24 }}></th>
-                <th>Campanha</th>
-                <th>Leads recebidos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((c) => (
-                <CampaignRow
-                  key={c.campaign}
-                  campaign={c}
-                  expanded={expandedCampaigns.has(c.campaign)}
-                  onToggle={() => toggleCampaign(c.campaign)}
-                />
-              ))}
-            </tbody>
-          </table>
-          {!loading && campaigns.length === 0 && <div className="empty">Nenhum lead no período selecionado.</div>}
         </div>
       </div>
     </>
