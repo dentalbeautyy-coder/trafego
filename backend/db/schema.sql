@@ -165,3 +165,52 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 -- Índices de apoio para os filtros do dashboard (período + campanha)
 CREATE INDEX IF NOT EXISTS idx_insights_date ON campaign_insights_daily(date);
 CREATE INDEX IF NOT EXISTS idx_insights_campaign ON campaign_insights_daily(campaign_id);
+
+-- ============================================================
+-- Kommo (CRM) — atendimento: responsável, status, e a campanha de
+-- origem (campo "Campanhas/Parceiros" da própria Kommo, preenchido pela
+-- equipe/robô ao receber o lead — não é o mesmo id de campanha da Meta,
+-- é o texto do anúncio, usado só como rótulo/agrupamento aqui).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS kommo_pipelines (
+  id BIGINT PRIMARY KEY,
+  name TEXT NOT NULL,
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS kommo_statuses (
+  id BIGINT PRIMARY KEY,
+  pipeline_id BIGINT NOT NULL REFERENCES kommo_pipelines(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT,
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS kommo_users (
+  id BIGINT PRIMARY KEY,
+  name TEXT NOT NULL,
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS kommo_leads (
+  id BIGINT PRIMARY KEY,
+  name TEXT,
+  responsible_user_id BIGINT REFERENCES kommo_users(id),
+  -- Campo customizado "Responsável" (multiselect) — quando preenchido, é mais
+  -- confiável que responsible_user_id porque várias pessoas usam o mesmo login
+  -- genérico ("Atendimento") na Kommo; esse campo registra quem atendeu de fato.
+  responsible_label TEXT,
+  pipeline_id BIGINT REFERENCES kommo_pipelines(id),
+  status_id BIGINT REFERENCES kommo_statuses(id),
+  campaign_label TEXT,   -- campo "Campanhas/Parceiros"
+  channel_label TEXT,    -- campo "Canal de Entrada"
+  kommo_created_at TIMESTAMPTZ,
+  kommo_updated_at TIMESTAMPTZ,
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_kommo_leads_created ON kommo_leads(kommo_created_at);
+CREATE INDEX IF NOT EXISTS idx_kommo_leads_campaign ON kommo_leads(campaign_label);
+CREATE INDEX IF NOT EXISTS idx_kommo_leads_responsible ON kommo_leads(responsible_user_id);
+CREATE INDEX IF NOT EXISTS idx_kommo_leads_status ON kommo_leads(status_id);

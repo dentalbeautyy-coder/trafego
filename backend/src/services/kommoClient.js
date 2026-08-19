@@ -20,28 +20,35 @@ async function get(path, params) {
   }
 }
 
-export async function fetchAccount() {
-  return get("/account", { with: "pipelines,users,custom_fields" });
-}
-
 export async function fetchUsers() {
-  return get("/users");
+  const data = await get("/users", { limit: 250 });
+  return data._embedded?.users || [];
 }
 
-export async function fetchPipelines() {
-  return get("/leads/pipelines");
+export async function fetchPipelinesWithStatuses() {
+  const data = await get("/leads/pipelines");
+  return data._embedded?.pipelines || [];
 }
 
-export async function fetchLeadsCustomFields() {
-  return get("/leads/custom_fields");
-}
+// Busca todos os leads criados no intervalo [fromTs, toTs] (unix seconds),
+// seguindo paginação até a Kommo não devolver mais "next".
+export async function fetchLeadsInRange(fromTs, toTs) {
+  const leads = [];
+  let page = 1;
+  const limit = 250;
 
-// Busca leads paginados, com embed de contatos e responsável.
-export async function fetchLeadsPage(page = 1, limit = 50) {
-  return get("/leads", { page, limit, with: "contacts" });
-}
-
-// Leads mais recentes primeiro — útil pra ver como o campo de campanha vem preenchido hoje.
-export async function fetchRecentLeads(limit = 20) {
-  return get("/leads", { page: 1, limit, "order[created_at]": "desc", with: "contacts" });
+  while (true) {
+    const data = await get("/leads", {
+      page,
+      limit,
+      "filter[created_at][from]": fromTs,
+      "filter[created_at][to]": toTs,
+      with: "contacts",
+    });
+    const pageLeads = data._embedded?.leads || [];
+    leads.push(...pageLeads);
+    if (!data._links?.next || pageLeads.length < limit) break;
+    page++;
+  }
+  return leads;
 }
